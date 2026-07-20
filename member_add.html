@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メンバー登録ツール</title>
+<style>
+  :root{
+    --ink:#1f2421;
+    --paper:#f7f5f0;
+    --line:#dcd6c8;
+    --accent:#2f5d50;
+    --accent-soft:#e4ede9;
+    --danger:#a3443a;
+    --white:#ffffff;
+    --muted:#7a7568;
+    --warn:#a3743a;
+    --warn-soft:#f4ebe0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.6;
+  }
+  header{
+    padding:32px 24px 20px;
+    border-bottom:1px solid var(--line);
+    background:var(--white);
+  }
+  header h1{
+    margin:0 0 6px;
+    font-size:22px;
+    letter-spacing:.02em;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  .status-bar{
+    max-width:920px;
+    margin:20px auto 0;
+    padding:0 24px;
+  }
+  .status-card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .status-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13.5px;
+  }
+  .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--muted);
+    flex-shrink:0;
+  }
+  .dot.on{background:var(--accent);}
+  .dot.warn{background:var(--danger);}
+  .status-card .title{font-weight:600;}
+  .status-card .sub{color:var(--muted);font-size:12.5px;}
+  .token-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .token-row input{
+    padding:8px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:13px;
+    width:180px;
+  }
+
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:20px 24px 80px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:24px;
+  }
+  @media(min-width:860px){
+    .wrap{grid-template-columns:380px 1fr;align-items:start;}
+  }
+  .card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:22px;
+  }
+  .card.disabled{
+    opacity:.45;
+    pointer-events:none;
+  }
+  .card h2{
+    font-size:15px;
+    margin:0 0 16px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+  }
+  label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    margin:14px 0 6px;
+  }
+  label:first-of-type{margin-top:0;}
+  select, input[type=text], input[type=url], input[type=password]{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:14px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  select:focus, input:focus{
+    outline:2px solid var(--accent);
+    outline-offset:1px;
+  }
+  .radio-group{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .radio-group label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:0;
+    padding:8px 12px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:13px;
+    cursor:pointer;
+    color:var(--ink);
+    background:var(--paper);
+  }
+  .radio-group input{width:auto;margin:0;}
+  .radio-group label.active{
+    background:var(--accent-soft);
+    border-color:var(--accent);
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    border-radius:6px;
+    font-size:14px;
+    padding:11px 16px;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#fff;
+    width:100%;
+    margin-top:18px;
+    font-weight:600;
+  }
+  .btn-primary:hover{background:#264c41;}
+  .btn-primary:disabled{background:#b7c4bf;cursor:not-allowed;}
+  .btn-secondary{
+    background:var(--white);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 14px;
+    font-size:13px;
+  }
+  .btn-secondary:hover{background:var(--accent-soft);}
+  .msg{
+    font-size:13px;
+    margin-top:10px;
+    min-height:18px;
+  }
+  .msg.ok{color:var(--accent);}
+  .msg.err{color:var(--danger);}
+
+  .list-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:14px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+  }
+  .list-head h2{border:none;margin:0;padding:0;}
+  .count-badge{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .cat-select-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .cat-select-row select{flex:1;}
+  .member-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    margin-bottom:8px;
+    background:var(--paper);
+  }
+  .member-info .name{font-weight:600;font-size:14px;}
+  .member-info .job{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .member-info .link{font-size:12px;margin-top:2px;}
+  .member-info .link a{color:var(--accent);word-break:break-all;}
+  .del-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--danger);
+    padding:6px 10px;
+    font-size:12px;
+    flex-shrink:0;
+  }
+  .del-btn:hover{background:#f4e6e4;}
+  .empty-note{
+    color:var(--muted);
+    font-size:13px;
+    padding:20px 0;
+    text-align:center;
+  }
+  .export-note{
+    font-size:12.5px;
+    color:var(--muted);
+    margin-top:12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>メンバー登録ツール</h1>
+  <p>サーバー上の members.js を自動で読み込み、保存もそのままサーバーへ直接反映します。</p>
+</header>
+
+<div class="status-bar">
+  <div class="status-card">
+    <div class="status-left">
+      <span class="dot" id="statusDot"></span>
+      <div>
+        <div class="title" id="statusTitle">members.js を読み込み中…</div>
+        <div class="sub" id="statusSub"></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div class="token-row">
+        <input type="password" id="tokenInput" placeholder="管理用パスコード">
+      </div>
+      <button class="btn-secondary" id="reloadBtn">最新の内容を再取得</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- 登録フォーム -->
+  <div class="card disabled" id="formCard">
+    <h2>新規メンバーを登録</h2>
+
+    <label>カテゴリー種別</label>
+    <div class="radio-group" id="typeGroup">
+      <label class="active"><input type="radio" name="catType" value="japan" checked>都道府県</label>
+      <label><input type="radio" name="catType" value="overseas">海外</label>
+      <label><input type="radio" name="catType" value="lifeplay">人生の遊び方</label>
+    </div>
+
+    <div id="subSelectWrap">
+      <label for="subSelect">都道府県を選択</label>
+      <select id="subSelect"></select>
+    </div>
+
+    <label for="nameInput">名前 (name)</label>
+    <input type="text" id="nameInput" placeholder="例）田中太郎">
+
+    <label for="jobInput">仕事 (job)</label>
+    <input type="text" id="jobInput" placeholder="例）カメラマン">
+
+    <label for="linkInput">リンク (link)</label>
+    <input type="url" id="linkInput" placeholder="https://example.com/sns/...">
+
+    <button class="btn-primary" id="addBtn">このメンバーを登録</button>
+    <div class="msg" id="formMsg"></div>
+  </div>
+
+  <!-- 一覧・更新 -->
+  <div class="card disabled" id="listCard">
+    <div class="list-head">
+      <h2>登録済みメンバー</h2>
+      <span class="count-badge" id="totalCount"></span>
+    </div>
+
+    <div class="cat-select-row">
+      <select id="viewTypeSelect">
+        <option value="japan">都道府県</option>
+        <option value="overseas">海外</option>
+        <option value="lifeplay">人生の遊び方</option>
+      </select>
+      <select id="viewSubSelect"></select>
+    </div>
+
+    <div id="listArea"></div>
+
+    <button class="btn-primary" id="updateBtn">members.js をサーバーへ反映する</button>
+    <div class="msg" id="updateMsg"></div>
+    <p class="export-note">「反映」を押すと save_members.php 経由でサーバー上の members.js が直接上書きされます。再アップロードは不要です。</p>
+  </div>
+
+</div>
+
+<script>
+// ==== 設定 ====
+const MEMBERS_JS_URL = './members.js';   // 同じフォルダの members.js を自動取得
+const SAVE_ENDPOINT = './save_members.php'; // 保存用エンドポイント（同梱のPHP）
+
+// ==== 状態 ====
+let MAP_MEMBERS_DATA = null;
+let LIFE_PLAY_MEMBERS_DATA = null;
+let PREF_ORDER = [];
+let LIFEPLAY_ORDER = [];
+const headerComment = `// メンバーデータの管理ファイル (members.js)`;
+const middleComment =
+`  // --- 47都道府県のメンバーデータ ---
+  // 都道府県コードまたは日本語名をキーにします`;
+const overseasComment = `  // --- 海外のメンバーデータ ---`;
+const lifePlayComment =
+`// --- 「人生の遊び方」カルーセルのメンバーデータ ---
+// タイトル（life-play-cardのタイトルと同じ文字列）をキーにします`;
+
+// ==== DOM参照 ====
+const statusDot = document.getElementById('statusDot');
+const statusTitle = document.getElementById('statusTitle');
+const statusSub = document.getElementById('statusSub');
+const reloadBtn = document.getElementById('reloadBtn');
+const tokenInput = document.getElementById('tokenInput');
+
+const formCard = document.getElementById('formCard');
+const listCard = document.getElementById('listCard');
+
+const typeGroup = document.getElementById('typeGroup');
+const subSelectWrap = document.getElementById('subSelectWrap');
+const subSelectLabel = subSelectWrap.querySelector('label');
+const subSelect = document.getElementById('subSelect');
+const nameInput = document.getElementById('nameInput');
+const jobInput = document.getElementById('jobInput');
+const linkInput = document.getElementById('linkInput');
+const addBtn = document.getElementById('addBtn');
+const formMsg = document.getElementById('formMsg');
+
+const viewTypeSelect = document.getElementById('viewTypeSelect');
+const viewSubSelect = document.getElementById('viewSubSelect');
+const listArea = document.getElementById('listArea');
+const totalCount = document.getElementById('totalCount');
+const updateBtn = document.getElementById('updateBtn');
+const updateMsg = document.getElementById('updateMsg');
+
+// 入力の手間を減らすため、パスコードは端末のブラウザにのみ保存（サーバーには送信時のみ使用）
+tokenInput.value = localStorage.getItem('memberAddToolToken') || '';
+tokenInput.addEventListener('input', ()=>{
+  localStorage.setItem('memberAddToolToken', tokenInput.value);
+});
+
+// ==== members.js のパース ====
+function parseMembersJs(code){
+  const fn = new Function(code + '\nreturn { MAP_MEMBERS_DATA, LIFE_PLAY_MEMBERS_DATA };');
+  const data = fn();
+  if(!data.MAP_MEMBERS_DATA || !data.LIFE_PLAY_MEMBERS_DATA){
+    throw new Error('MAP_MEMBERS_DATA または LIFE_PLAY_MEMBERS_DATA が見つかりませんでした。');
+  }
+  return data;
+}
+
+function loadDataIntoState(code){
+  const parsed = parseMembersJs(code);
+  MAP_MEMBERS_DATA = parsed.MAP_MEMBERS_DATA;
+  LIFE_PLAY_MEMBERS_DATA = parsed.LIFE_PLAY_MEMBERS_DATA;
+  PREF_ORDER = Object.keys(MAP_MEMBERS_DATA.japan);
+  LIFEPLAY_ORDER = Object.keys(LIFE_PLAY_MEMBERS_DATA);
+  if(!MAP_MEMBERS_DATA.overseas) MAP_MEMBERS_DATA.overseas = [];
+}
+
+// ==== 自動読み込み ====
+async function fetchMembersJs(){
+  setStatus('loading', 'members.js を読み込み中…', '');
+  try{
+    const res = await fetch(MEMBERS_JS_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    loadDataIntoState(text);
+    setStatus('ok', 'members.js を読み込みました', '最終取得: ' + new Date().toLocaleTimeString('ja-JP'));
+    formCard.classList.remove('disabled');
+    listCard.classList.remove('disabled');
+    afterLoad();
+  }catch(err){
+    setStatus('err', 'members.js の読み込みに失敗しました', err.message + '（同じフォルダに member_add.html と members.js を置き、サーバー経由（http/https）で開いているか確認してください）');
+    formCard.classList.add('disabled');
+    listCard.classList.add('disabled');
+  }
+}
+
+function setStatus(kind, title, sub){
+  statusDot.className = 'dot' + (kind === 'ok' ? ' on' : kind === 'err' ? ' warn' : '');
+  statusTitle.textContent = title;
+  statusSub.textContent = sub;
+}
+
+reloadBtn.addEventListener('click', fetchMembersJs);
+
+function afterLoad(){
+  refreshFormSubSelect();
+  buildSubOptions(viewSubSelect, viewTypeSelect.value);
+  renderList();
+}
+
+// ==== フォーム側：カテゴリー種別に応じてサブ選択を作る ====
+function currentFormType(){
+  return typeGroup.querySelector('input[name="catType"]:checked').value;
+}
+
+function buildSubOptions(selectEl, type){
+  selectEl.innerHTML = '';
+  if(type === 'japan'){
+    PREF_ORDER.forEach(pref=>{
+      const opt = document.createElement('option');
+      opt.value = pref; opt.textContent = pref;
+      selectEl.appendChild(opt);
+    });
+  } else if(type === 'lifeplay'){
+    LIFEPLAY_ORDER.forEach(cat=>{
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat;
+      selectEl.appendChild(opt);
+    });
+  } else {
+    const opt = document.createElement('option');
+    opt.value = 'overseas'; opt.textContent = '海外';
+    selectEl.appendChild(opt);
+  }
+}
+
+function refreshFormSubSelect(){
+  const type = currentFormType();
+  if(type === 'overseas'){
+    subSelectWrap.style.display = 'none';
+  } else {
+    subSelectWrap.style.display = 'block';
+    subSelectLabel.textContent = type === 'japan' ? '都道府県を選択' : 'カテゴリーを選択';
+    buildSubOptions(subSelect, type);
+  }
+}
+
+typeGroup.addEventListener('change', (e)=>{
+  typeGroup.querySelectorAll('label').forEach(l=>l.classList.remove('active'));
+  e.target.closest('label').classList.add('active');
+  refreshFormSubSelect();
+});
+
+// ==== 登録処理 ====
+function getArrayRef(type, key){
+  if(type === 'japan') return MAP_MEMBERS_DATA.japan[key];
+  if(type === 'overseas') return MAP_MEMBERS_DATA.overseas;
+  if(type === 'lifeplay') return LIFE_PLAY_MEMBERS_DATA[key];
+}
+
+addBtn.addEventListener('click', ()=>{
+  if(!MAP_MEMBERS_DATA) return;
+  const type = currentFormType();
+  const key = type === 'overseas' ? 'overseas' : subSelect.value;
+  const name = nameInput.value.trim();
+  const job = jobInput.value.trim();
+  const link = linkInput.value.trim();
+
+  if(!name){
+    showFormMsg('名前を入力してください。', true);
+    return;
+  }
+
+  const arr = getArrayRef(type, key);
+  arr.push({ name, job, link });
+
+  showFormMsg(`「${key === 'overseas' ? '海外' : key}」に ${name} さんを登録しました。まだサーバーには反映されていません。`, false);
+  nameInput.value = ''; jobInput.value = ''; linkInput.value = '';
+  nameInput.focus();
+
+  viewTypeSelect.value = type;
+  buildSubOptions(viewSubSelect, type);
+  viewSubSelect.value = key;
+  renderList();
+});
+
+function showFormMsg(text, isErr){
+  formMsg.textContent = text;
+  formMsg.className = 'msg ' + (isErr ? 'err' : 'ok');
+}
+
+// ==== 一覧表示側 ====
+function refreshViewSubSelect(){
+  const type = viewTypeSelect.value;
+  buildSubOptions(viewSubSelect, type);
+  renderList();
+}
+
+viewTypeSelect.addEventListener('change', refreshViewSubSelect);
+viewSubSelect.addEventListener('change', renderList);
+
+function renderList(){
+  if(!MAP_MEMBERS_DATA) return;
+  const type = viewTypeSelect.value;
+  const key = type === 'overseas' ? 'overseas' : viewSubSelect.value;
+  const arr = getArrayRef(type, key) || [];
+
+  listArea.innerHTML = '';
+  if(arr.length === 0){
+    listArea.innerHTML = '<div class="empty-note">まだ登録されたメンバーがいません。</div>';
+  } else {
+    arr.forEach((m, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'member-row';
+      row.innerHTML = `
+        <div class="member-info">
+          <div class="name">${escapeHtml(m.name)}</div>
+          <div class="job">${escapeHtml(m.job || '')}</div>
+          <div class="link">${m.link ? `<a href="${escapeHtml(m.link)}" target="_blank" rel="noopener">${escapeHtml(m.link)}</a>` : ''}</div>
+        </div>
+        <button class="del-btn" data-idx="${idx}">削除</button>
+      `;
+      listArea.appendChild(row);
+    });
+    listArea.querySelectorAll('.del-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        arr.splice(Number(btn.dataset.idx), 1);
+        renderList();
+      });
+    });
+  }
+  updateTotalCount();
+}
+
+function updateTotalCount(){
+  if(!MAP_MEMBERS_DATA) return;
+  let total = 0;
+  PREF_ORDER.forEach(p=> total += MAP_MEMBERS_DATA.japan[p].length);
+  total += MAP_MEMBERS_DATA.overseas.length;
+  LIFEPLAY_ORDER.forEach(c=> total += LIFE_PLAY_MEMBERS_DATA[c].length);
+  totalCount.textContent = `全 ${total} 名`;
+}
+
+function escapeHtml(str){
+  return String(str)
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'","&#39;");
+}
+
+// ==== members.js テキストの再構築 ====
+function memberEntryToCode(m, indent){
+  return `${indent}{ name: ${JSON.stringify(m.name)}, job: ${JSON.stringify(m.job||'')}, link: ${JSON.stringify(m.link||'')} }`;
+}
+
+function arrayToCode(arr, indent){
+  if(!arr.length) return '[]';
+  const inner = arr.map(m => memberEntryToCode(m, indent + '  ')).join(',\n');
+  return `[\n${inner}\n${indent}]`;
+}
+
+function buildMembersJsText(){
+  const prefLines = PREF_ORDER.map(pref=>{
+    return `    ${JSON.stringify(pref)}: ${arrayToCode(MAP_MEMBERS_DATA.japan[pref], '    ')}`;
+  }).join(',\n');
+
+  const overseasCode = arrayToCode(MAP_MEMBERS_DATA.overseas, '  ');
+
+  const lifePlayLines = LIFEPLAY_ORDER.map(cat=>{
+    return `  ${JSON.stringify(cat)}: ${arrayToCode(LIFE_PLAY_MEMBERS_DATA[cat], '  ')}`;
+  }).join(',\n');
+
+  return `${headerComment}
+const MAP_MEMBERS_DATA = {
+${middleComment}
+  japan: {
+${prefLines}
+  },
+
+${overseasComment}
+  overseas: ${overseasCode}
+};
+
+${lifePlayComment}
+const LIFE_PLAY_MEMBERS_DATA = {
+${lifePlayLines}
+};
+`;
+}
+
+// ==== サーバーへ反映 ====
+updateBtn.addEventListener('click', async ()=>{
+  if(!MAP_MEMBERS_DATA) return;
+  const token = tokenInput.value.trim();
+  if(!token){
+    showUpdateMsg('管理用パスコードを入力してください。', true);
+    return;
+  }
+
+  const text = buildMembersJsText();
+  updateBtn.disabled = true;
+  showUpdateMsg('サーバーへ送信中…', false);
+
+  try{
+    const res = await fetch(SAVE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+        'X-Auth-Token': token
+      },
+      body: text
+    });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || !data || !data.ok){
+      throw new Error((data && data.error) || ('HTTP ' + res.status));
+    }
+    showUpdateMsg('members.js をサーバーに反映しました（' + new Date().toLocaleTimeString('ja-JP') + '）。', false);
+  }catch(err){
+    showUpdateMsg('反映に失敗しました: ' + err.message, true);
+  }finally{
+    updateBtn.disabled = false;
+  }
+});
+
+function showUpdateMsg(text, isErr){
+  updateMsg.textContent = text;
+  updateMsg.className = 'msg ' + (isErr ? 'err' : 'ok');
+}
+
+// ==== 初期化 ====
+fetchMembersJs();
+</script>
+
+</body>
+</html>

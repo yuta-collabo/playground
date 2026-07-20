@@ -1,0 +1,3732 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>Playground - 世界を遊び倒せ！</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Noto+Sans+JP:wght@300;400;700;900&family=Bebas+Neue&family=Pacifico&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-top: #0066cc;
+    --sky-mid: #1a8fe3;
+    --sky-light: #5bb8f5;
+    --sky-pale: #c8e9ff;
+    --green-dark: #2d7a3a;
+    --green-mid: #4caf50;
+    --green-light: #81c784;
+    --sun-yellow: #FFD700;
+    --hot-pink: #ff2d78;
+    --electric-blue: #00cfff;
+    --lime: #aaff00;
+    --white: #ffffff;
+    --dark: #0a1628;
+    --card-bg: rgba(255,255,255,0.92);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+/* ===== JAPAN MAP (旧 WORLD MAJI) ===== */
+  #world-maji {
+    background: linear-gradient(135deg, #020c1e 0%, #0a1628 50%, #051020 100%);
+    padding: 80px 0;
+  }
+  #world-maji .section-title { color: #fff; text-align: center; margin-bottom: 40px; }
+
+  .japan-map-wrapper {
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(0, 207, 255, 0.15);
+    border-radius: 24px;
+    padding: 30px;
+    box-shadow: 0 0 50px rgba(0,207,255,0.08);
+  }
+
+  /* 非常にリアルな日本地図を再現・レスポンシブ配置するためのコンテナ */
+  .map-container {
+    width: 100%;
+    height: auto;
+    min-height: 550px;
+    position: relative;
+  }
+
+  .map-tooltip {
+    position: fixed;
+    background: rgba(10, 22, 40, 0.9);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    pointer-events: none; /* マウスイベントを透過させてホバーの邪魔をしない */
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    margin-top: -10px;
+    border: 1px solid var(--electric-blue);
+    box-shadow: 0 4px 15px rgba(0, 207, 255, 0.3);
+    transition: opacity 0.15s ease;
+    z-index: 9999; /* 最前面に表示 */
+  }
+
+  /* 地図SVGのスタイリング */
+  .japan-svg {
+    width: 100%;
+    height: 100%;
+    max-height: 650px;
+  }
+
+  /* 都道府県パスのリアルなカラーとホバーアニメーション */
+  .pref-path {
+    fill: rgba(0, 143, 227, 0.25);
+    stroke: #0a1628;
+    stroke-width: 0.5;
+    cursor: pointer;
+    transition: fill 0.2s ease, transform 0.2s ease, filter 0.2s ease;
+  }
+
+  .pref-path:hover {
+    fill: var(--electric-blue);
+    filter: drop-shadow(0 0 8px var(--electric-blue));
+  }
+
+  .pref-path.active {
+    fill: var(--hot-pink);
+    filter: drop-shadow(0 0 12px var(--hot-pink));
+    stroke: #fff;
+    stroke-width: 1;
+  }
+
+  /* 右下の地球マーク（海外メンバーボタン） */
+  .global-member-trigger {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, rgba(0,207,255,0.2) 0%, rgba(10,22,40,0.8) 80%);
+    border: 2px solid var(--electric-blue);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(0,207,255,0.4);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+    z-index: 10;
+  }
+
+  .global-member-trigger:hover {
+    transform: scale(1.1) rotate(15deg);
+    box-shadow: 0 0 35px rgba(0,207,255,0.7), 0 0 15px var(--lime);
+    border-color: var(--lime);
+  }
+
+  .global-member-trigger .earth-icon {
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .global-member-trigger .earth-label {
+    font-size: 0.55rem;
+    color: #fff;
+    font-weight: 700;
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  /* 現在選択中のターゲット表示バー */
+  .current-selection-bar {
+    text-align: center;
+    margin-top: 25px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    min-height: 30px;
+  }
+  .current-selection-bar span {
+    color: var(--electric-blue);
+    border-bottom: 2px solid var(--electric-blue);
+    padding-bottom: 2px;
+    margin-right: 5px;
+  }
+  .current-selection-bar.overseas-active span {
+    color: var(--lime);
+    border-bottom-color: var(--lime);
+  }
+
+  /* メンバー一覧表示エリア（下側マップ直下） */
+  .member-list-display-container {
+    margin-top: 35px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 30px;
+  }
+
+  .member-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+  }
+
+  .member-list-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(0, 207, 255, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+    animation: memberFadeIn 0.4s ease both;
+  }
+
+  .member-list-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0, 207, 255, 0.5);
+    box-shadow: 0 8px 25px rgba(0,207,255,0.15);
+  }
+
+  @keyframes memberFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .member-info-top {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .member-list-name {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .member-list-job {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.8rem;
+    font-weight: 400;
+  }
+
+  /* 支え合い SNSリンクボタン */
+  .member-sns-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    background: linear-gradient(135deg, var(--hot-pink) 0%, #ff527b 100%);
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(255,45,120,0.3);
+  }
+
+  .member-sns-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255,45,120,0.5);
+  }
+
+  .member-empty-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 0.95rem;
+    padding: 40px 20px;
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.01);
+  }
+
+  /* ===== LIFE PLAY ===== */
+  #life-play {
+    background: linear-gradient(135deg, #0a1628 0%, #07101e 100%);
+    padding: 0;
+  }
+  #life-play .section-title { color: #fff; }
+
+  /* --- ボタン切替式カルーセル --- */
+  .life-play-carousel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px 0 10px;
+  }
+
+  .lp-nav-btn {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,215,0,0.3);
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .lp-nav-btn:hover {
+    background: rgba(255,215,0,0.15);
+    border-color: var(--sun-yellow);
+    box-shadow: 0 0 20px rgba(255,215,0,0.3);
+    transform: scale(1.08);
+  }
+  .lp-nav-btn:active { transform: scale(0.95); }
+
+  .life-play-stage {
+    position: relative;
+    width: 240px;
+    height: 220px;
+    overflow: hidden;
+  }
+
+  .life-play-card {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 28px 16px 22px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .life-play-card.lp-enter {
+    animation: lpCardIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+    background: rgba(0,207,255,0.1);
+    border-color: rgba(0,207,255,0.5);
+    box-shadow: 0 16px 40px rgba(0,207,255,0.2);
+  }
+
+  @keyframes lpCardIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.94); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .lp-emoji {
+    font-size: 2.8rem;
+    line-height: 1;
+    margin-bottom: 12px;
+    display: block;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+  }
+  .lp-title {
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+    letter-spacing: 0.03em;
+  }
+  .lp-desc {
+    color: rgba(255,255,255,0.45);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .lp-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 18px 0 40px;
+  }
+  .lp-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .lp-dot:hover { background: rgba(255,215,0,0.5); }
+  .lp-dot.active {
+    background: var(--sun-yellow);
+    transform: scale(1.2);
+  }
+
+  /* ===== ROULETTE ===== */
+  .roulette-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .roulette-pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2rem;
+    color: var(--hot-pink);
+    z-index: 20;
+    filter: drop-shadow(0 0 8px rgba(255,45,120,0.8));
+    animation: pointerBob 1.5s ease-in-out infinite;
+  }
+  @keyframes pointerBob {
+    0%,100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-5px); }
+  }
+  #rouletteCanvas {
+    border-radius: 50%;
+    box-shadow: 0 0 60px rgba(0,207,255,0.25), 0 0 120px rgba(255,45,120,0.1);
+    border: 3px solid rgba(255,255,255,0.08);
+    display: block;
+    max-width: min(400px, 88vw);
+    max-height: min(400px, 88vw);
+  }
+  .roulette-center-btn {
+    position: absolute;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--hot-pink), #ff6b35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(255,45,120,0.6), 0 4px 20px rgba(0,0,0,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 30;
+  }
+  .roulette-center-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 45px rgba(255,45,120,0.85), 0 6px 28px rgba(0,0,0,0.5);
+  }
+  .roulette-center-btn span {
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+  }
+  .roulette-result {
+    background: rgba(255,45,120,0.12);
+    border: 1px solid rgba(255,45,120,0.45);
+    border-radius: 20px;
+    padding: 24px 40px;
+    text-align: center;
+    animation: resultPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes resultPop {
+    from { opacity:0;
+    transform:scale(0.7);
+    }
+    to { opacity:1;
+    transform:scale(1);
+    }
+  }
+  .roulette-result-label {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .roulette-result-text {
+    color: #fff;
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+  }
+  .roulette-result-emoji {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  /* ===== CONSTITUTION - MAKIMONO SCROLL ===== */
+  #constitution-section {
+    background: linear-gradient(135deg, #020c1e 0%, #0a1628 100%);
+    padding: 100px 0;
+  }
+
+  .constitution-scroll-wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .scroll-rod {
+    width: 100%;
+    height: 28px;
+    background: linear-gradient(180deg,
+      #c8a86b 0%,
+      #a07840 20%,
+      #d4b87a 45%,
+      #9a6e30 70%,
+      #b8924e 100%
+    );
+    border-radius: 14px;
+    box-shadow:
+      0 4px 12px rgba(0,0,0,0.5),
+      inset 0 2px 4px rgba(255,255,255,0.2),
+      inset 0 -2px 4px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 3;
+  }
+
+  .scroll-rod::before,
+  .scroll-rod::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 38px;
+    background: radial-gradient(circle at 35% 35%,
+      #e8c87a 0%,
+      #c4993a 40%,
+      #8a6520 80%
+    );
+    border-radius: 50%;
+    box-shadow:
+      0 4px 12px rgba(0,0,0,0.5),
+      inset 0 2px 3px rgba(255,255,255,0.25);
+  }
+
+  .scroll-rod::before { left: -10px; }
+  .scroll-rod::after  { right: -10px; }
+
+  .scroll-body {
+    background: linear-gradient(180deg,
+      #f5e8c8 0%,
+      #ede0b0 8%,
+      #f0e4b8 30%,
+      #ecddb0 60%,
+      #e8d8a8 92%,
+      #dcc890 100%
+    );
+    padding: 48px 64px 52px;
+    position: relative;
+    box-shadow:
+      0 8px 40px rgba(0,0,0,0.5),
+      inset 0 0 80px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+
+  /* Aged paper texture via pseudo-elements */
+  .scroll-body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 28px,
+        rgba(180,140,60,0.08) 28px,
+        rgba(180,140,60,0.08) 29px
+      );
+    pointer-events: none;
+  }
+
+  .scroll-body::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(210,170,80,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 20% 100%, rgba(150,100,30,0.1) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 80% 50%, rgba(180,130,50,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .scroll-title-inner {
+    text-align: center;
+    margin-bottom: 36px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .scroll-title-inner h3 {
+    font-family: 'Noto Sans JP', serif;
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    font-weight: 900;
+    color: #4a3010;
+    letter-spacing: 0.3em;
+    text-shadow: 1px 1px 2px rgba(200,150,50,0.4);
+  }
+
+  .scroll-title-divider {
+    width: 180px;
+    height: 2px;
+    margin: 14px auto 0;
+    background: linear-gradient(90deg, transparent, #a07840, transparent);
+  }
+
+  .constitution-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .constitution-item {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(160,120,60,0.25);
+  }
+
+  .constitution-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .constitution-item-num {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #8a6020;
+    letter-spacing: 0.25em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding-top: 3px;
+  }
+
+  .constitution-item-text {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: clamp(1.2rem, 3.5vw, 1.7rem);
+    font-weight: 900;
+    color: #2a1a04;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-shadow: 1px 1px 0 rgba(200,150,60,0.2);
+  }
+
+  .scroll-seal {
+    text-align: center;
+    margin-top: 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .scroll-seal-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 3px solid #a07840;
+    background: radial-gradient(circle, rgba(220,180,80,0.15), rgba(160,120,50,0.08));
+    color: #8a6020;
+    font-size: 1.4rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,220,100,0.3);
+  }
+
+  /* ===== LEGEND ===== */
+  .legend-form-wrap {
+    max-width: 700px;
+    margin: 0 auto 50px;
+  }
+  .legend-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 20px;
+    padding: 24px;
+  }
+  .legend-input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 0.9rem;
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    min-width: 140px;
+    flex: 1;
+  }
+  .legend-input-wide { flex: 3; }
+  .legend-input::placeholder { color: rgba(255,255,255,0.3); }
+  .legend-input:focus {
+    border-color: rgba(255,215,0,0.5);
+    box-shadow: 0 0 0 3px rgba(255,215,0,0.08);
+  }
+  .legend-btn {
+    background: linear-gradient(135deg, var(--sun-yellow), #ffaa00);
+    color: #0a1628;
+    font-weight: 900;
+    font-size: 0.9rem;
+    font-family: 'Noto Sans JP', sans-serif;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(255,215,0,0.35);
+  }
+  .legend-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(255,215,0,0.5);
+  }
+  .legend-error {
+    color: var(--hot-pink);
+    font-size: 0.8rem;
+    margin-top: 8px;
+    padding-left: 4px;
+    min-height: 18px;
+  }
+  .legend-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .legend-item {
+    position: relative;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,215,0,0.15);
+    border-radius: 16px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    animation: legendSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    transition: border-color 0.3s;
+  }
+  .legend-item:hover { border-color: rgba(255,215,0,0.4); }
+  .legend-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s;
+  }
+  .legend-delete-btn:hover {
+    background: rgba(255,45,120,0.2);
+    border-color: rgba(255,45,120,0.6);
+    color: #fff;
+    transform: scale(1.1);
+  }
+  @keyframes legendSlide {
+    from { opacity:0;
+    transform: translateX(-20px);
+    }
+    to { opacity:1;
+    transform: translateX(0);
+    }
+  }
+  .legend-medal {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .legend-body { flex: 1; }
+  .legend-name {
+    color: var(--sun-yellow);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .legend-topic {
+    color: rgba(255,255,255,0.9);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .legend-time {
+    color: rgba(255,255,255,0.3);
+    font-size: 0.7rem;
+    margin-top: 4px;
+  }
+  .legend-empty {
+    text-align: center;
+    color: rgba(255,255,255,0.25);
+    font-size: 0.9rem;
+    padding: 40px;
+    border: 1px dashed rgba(255,215,0,0.15);
+    border-radius: 16px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    nav {
+      padding: 12px 20px;
+    }
+    .section-inner {
+      padding: 60px 20px;
+    }
+    .hero-content {
+      margin-top: 100px;
+      padding: 0 12px;
+    }
+    .float-badge {
+      font-size: 0.85rem;
+      padding: 6px 12px;
+    }
+    .float-badge[style*="left:7%"] {
+      left: 2% !important;
+      top: 120px !important;
+    }
+    .float-badge[style*="right:8%"] {
+      right: 2% !important;
+      top: 150px !important;
+    }
+    .team-line-layout {
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+    }
+    .phone-mockup {
+      max-width: 260px;
+      width: 100%;
+    }
+    .line-info {
+      text-align: center;
+    }
+    .country-cards-grid {
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 14px;
+    }
+    .scroll-body {
+      padding: 36px 28px 40px;
+    }
+    .constitution-item-text {
+      font-size: clamp(1.1rem, 5vw, 1.4rem);
+    }
+    .constitution-scroll-wrap {
+      margin: 0 12px;
+    }
+    #rouletteCanvas {
+      max-width: min(320px, 88vw);
+      max-height: min(320px, 88vw);
+    }
+    .legend-form {
+      flex-direction: column;
+    }
+    .legend-input,
+    .legend-input-wide {
+      width: 100%;
+      flex: unset;
+    }
+    .life-play-stage {
+      width: 200px;
+      height: 210px;
+    }
+    .pin-popup {
+      min-width: 130px;
+    }
+    .japan-map-wrapper {
+      padding: 16px;
+      border-radius: 16px;
+    }
+    .map-container {
+      min-height: 380px;
+    }
+    .global-member-trigger {
+      width: 60px;
+      height: 60px;
+      bottom: 12px;
+      right: 12px;
+    }
+    .global-member-trigger .earth-icon {
+      font-size: 1.5rem;
+    }
+    .global-member-trigger .earth-label {
+      font-size: 0.42rem;
+    }
+    .current-selection-bar {
+      font-size: 0.95rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .life-play-carousel {
+      gap: 10px;
+    }
+    .lp-nav-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 1.3rem;
+    }
+    .life-play-stage {
+      width: 160px;
+      height: 230px;
+    }
+    .nav-logo {
+      font-size: 1.5rem;
+    }
+    footer .footer-logo {
+      font-size: 2.2rem;
+    }
+    .playground-title {
+      font-size: clamp(2.6rem, 15vw, 4rem);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .section-inner {
+      padding: 48px 16px;
+    }
+    .scroll-body {
+      padding: 28px 18px 32px;
+    }
+    .constitution-item {
+      gap: 12px;
+    }
+    .constitution-item-num {
+      font-size: 0.68rem;
+    }
+    .constitution-item-text {
+      font-size: clamp(1rem, 5.5vw, 1.3rem);
+    }
+    .scroll-rod::before,
+    .scroll-rod::after {
+      width: 28px;
+      height: 28px;
+    }
+    .graffiti-tag,
+    .graffiti-tag2 {
+      font-size: 1.3rem;
+    }
+    .hero-cta {
+      padding: 14px 28px;
+      font-size: 0.95rem;
+    }
+    .roulette-center-btn {
+      width: 58px;
+      height: 58px;
+    }
+    .roulette-center-btn span {
+      font-size: 0.78rem;
+    }
+  }
+
+  /* Section wave divider responsive */
+  .wave-divider svg {
+    height: 40px;
+  }
+
+  /* Ensure no horizontal overflow */
+  .life-play-carousel {
+    max-width: 100vw;
+  }
+
+  /* Footer responsive */
+  footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  /* World map container responsive */
+  @media (max-width: 600px) {
+    .world-map-container {
+      border-radius: 12px;
+    }
+    .country-cards-grid {
+      grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+      gap: 10px;
+      margin-top: 32px;
+    }
+  }
+
+  /* Section title line height fix on mobile */
+  @media (max-width: 480px) {
+    .section-title {
+      line-height: 1.25;
+    }
+  }
+
+  /* Scroll seal responsive */
+  @media (max-width: 480px) {
+    .scroll-seal {
+      margin-top: 20px;
+    }
+    .scroll-seal-circle {
+      width: 50px;
+      height: 50px;
+      font-size: 1.1rem;
+    }
+  }
+
+  /* Section wave divider full width */
+  @media (max-width: 768px) {
+    .wave-divider svg {
+      height: 30px;
+    }
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--sky-top);
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ===== NAVBAR ===== */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    align-items: center;
+    padding: 16px 40px;
+    background: rgba(0,60,130,0.25);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    transition: background 0.3s;
+    text-align: center;
+  }
+  nav.scrolled { background: rgba(0,40,100,0.85); }
+  .nav-logo {
+    font-family: 'Caveat', cursive;
+    font-size: 2rem;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0,207,255,0.6);
+    letter-spacing: 2px;
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 20px;
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .nav-link {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    padding: 8px 16px;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    transition: background 0.25s, border-color 0.25s, transform 0.2s;
+    white-space: nowrap;
+  }
+  .nav-link:hover {
+    background: rgba(0,207,255,0.2);
+    border-color: rgba(0,207,255,0.7);
+    transform: translateY(-2px);
+  }
+  @media (max-width: 640px) {
+    .nav-inner {
+      flex-direction: column;
+      gap: 10px;
+    }
+    .nav-links {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .nav-link {
+      font-size: 0.75rem;
+      padding: 6px 12px;
+    }
+  }
+
+  /* ===== HERO ===== */
+  #hero {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  /* Space background */
+  .sky-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 40%, #0a1a4a 0%, #020812 60%, #000005 100%);
+  }
+  .sky-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 25% 40%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 40% 10%, rgba(255,255,255,0.8) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 60%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 70% 25%, rgba(255,255,255,0.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 85% 50%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 75%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 60% 80%, rgba(255,255,255,0.8) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 10%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 5% 55%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 35% 88%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 78% 68%, rgba(255,255,255,0.8) 0%, transparent 100%),
+      radial-gradient(1px 1px at 48% 35%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 92% 78%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 20% 92%, rgba(255,255,255,0.5) 0%, transparent 100%);
+  }
+
+  /* Earth globe — realistic partial view from bottom */
+  .earth-wrap {
+    position: absolute;
+    bottom: -55%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(900px, 110vw);
+    height: min(900px, 110vw);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Atmosphere glow (outer ring) */
+  .earth-atmos {
+    position: absolute;
+    inset: -3%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+      transparent 44%,
+      rgba(70,160,255,0.18) 47%,
+      rgba(100,200,255,0.28) 50%,
+      rgba(50,130,255,0.14) 53%,
+      rgba(20,80,200,0.06) 57%,
+      transparent 62%);
+    pointer-events: none;
+    z-index: 4;
+  }
+
+  .earth-sphere {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      inset -60px -30px 120px rgba(0,0,0,0.75),
+      inset 30px 25px 80px rgba(0,60,160,0.18),
+      inset -20px 10px 60px rgba(0,0,0,0.4),
+      0 0 120px rgba(30,120,255,0.35),
+      0 0 240px rgba(0,80,200,0.18);
+  }
+
+  /* Deep ocean base */
+  .earth-ocean {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(ellipse at 38% 32%, #1e6bb8 0%, #0d47a1 30%, #083580 60%, #051d55 100%);
+  }
+
+  /* Ocean depth & shimmer */
+  .earth-ocean::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(ellipse 60% 30% at 30% 20%, rgba(50,140,230,0.35) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 20% at 70% 60%, rgba(20,80,180,0.3) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 15% at 50% 80%, rgba(5,30,100,0.5) 0%, transparent 80%);
+  }
+
+  /* Land masses SVG overlay inside sphere */
+  .earth-land {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    animation: earthSlowRotate 40s linear infinite;
+  }
+
+  .earth-land svg {
+    width: 200%;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  /* Specular highlight (sun reflection top-left) */
+  .earth-specular {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(ellipse 45% 40% at 32% 28%, rgba(255,255,255,0.13) 0%, rgba(180,220,255,0.06) 40%, transparent 70%);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* Terminator (night-side shadow) */
+  .earth-terminator {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 75% 55%,
+      rgba(0,0,0,0) 0%,
+      rgba(0,0,0,0) 35%,
+      rgba(0,5,20,0.35) 55%,
+      rgba(0,2,10,0.7) 70%,
+      rgba(0,0,5,0.88) 85%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Cloud layer */
+  .earth-clouds {
+    position: absolute;
+    inset: -1%;
+    border-radius: 50%;
+    overflow: hidden;
+    animation: earthSlowRotate 28s linear infinite reverse;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .earth-clouds svg {
+    width: 200%;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  @keyframes earthSlowRotate {
+    from { transform: translateX(0%); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* Animated realistic clouds */
+  .clouds { display: none; }
+  .cloud-svg {
+    position: absolute;
+    animation: driftCloud linear infinite;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.12));
+  }
+  .cloud-svg-1 { top: 7%;
+  left: -380px;
+  width: 380px;
+  animation-duration: 55s;
+  animation-delay: -8s;
+  opacity: 0.95;
+  }
+  .cloud-svg-2 { top: 16%;
+  left: -500px;
+  width: 500px;
+  animation-duration: 75s;
+  animation-delay: -30s;
+  opacity: 0.85;
+  }
+  .cloud-svg-3 { top: 26%;
+  left: -280px;
+  width: 280px;
+  animation-duration: 60s;
+  animation-delay: -18s;
+  opacity: 0.78;
+  }
+  .cloud-svg-4 { top: 5%;
+  left: -450px;
+  width: 450px;
+  animation-duration: 85s;
+  animation-delay: -50s;
+  opacity: 0.9;
+  }
+  .cloud-svg-5 { top: 34%;
+  left: -220px;
+  width: 220px;
+  animation-duration: 50s;
+  animation-delay: -5s;
+  opacity: 0.65;
+  }
+
+  @keyframes driftCloud {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(100vw + 600px)); }
+  }
+
+  /* Sun - hidden when using photo background */
+  .sun { display: none;
+    position: absolute;
+    top: 60px;
+    right: 120px;
+    width: 90px;
+    height: 90px;
+    background: radial-gradient(circle, #fff8a0 20%, #FFD700 50%, #ff9800 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 60px 20px rgba(255,220,0,0.5), 0 0 120px 40px rgba(255,200,0,0.25);
+    animation: sunPulse 3s ease-in-out infinite;
+  }
+  .sun-rays {
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, transparent 40px, rgba(255,220,0,0.15) 50px, transparent 60px);
+    animation: sunRotate 15s linear infinite;
+  }
+  @keyframes sunPulse {
+    0%,100% { box-shadow: 0 0 60px 20px rgba(255,220,0,0.5), 0 0 120px 40px rgba(255,200,0,0.25); }
+    50% { box-shadow: 0 0 80px 30px rgba(255,220,0,0.7), 0 0 160px 60px rgba(255,200,0,0.35); }
+  }
+  @keyframes sunRotate { to { transform: rotate(360deg); } }
+
+  /* Sparkles */
+  .sparkles { position: absolute;
+  inset: 0;
+  pointer-events: none;
+  }
+  .sparkle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #fff;
+    clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+    animation: sparkleAnim linear infinite;
+    opacity: 0;
+  }
+  @keyframes sparkleAnim {
+    0% { opacity:0;
+    transform:scale(0) rotate(0deg);
+    }
+    30% { opacity:1;
+    transform:scale(1) rotate(180deg);
+    }
+    60% { opacity:0.5; }
+    100% { opacity:0;
+    transform:scale(0.5) rotate(360deg);
+    }
+  }
+
+  /* Hero Title */
+  .hero-content {
+    position: relative;
+    z-index: 20;
+    text-align: center;
+    margin-top: 130px;
+    padding: 0 20px;
+  }
+
+  .playground-title {
+    font-family: 'Caveat', cursive;
+    font-size: clamp(4rem, 12vw, 11rem);
+    color: #fff;
+    line-height: 1.15;
+    text-shadow:
+      3px 3px 0 rgba(0,80,180,0.4),
+      0 0 40px rgba(0,207,255,0.5),
+      0 0 80px rgba(0,150,255,0.3);
+    position: relative;
+    display: block;
+    white-space: normal;
+    word-break: keep-all;
+    overflow: visible;
+  }
+
+  /* SVG writing animation */
+  .title-svg-wrapper {
+    position: relative;
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 10px 20px;
+    overflow: visible;
+  }
+
+  /* Tagline */
+  .hero-tagline {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: clamp(1rem, 2.5vw, 1.6rem);
+    font-weight: 900;
+    color: var(--sun-yellow);
+    letter-spacing: 0.15em;
+    margin-top: 16px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    animation: fadeSlideUp 1s 1.8s both;
+  }
+  .hero-sub {
+    font-size: clamp(0.8rem, 1.5vw, 1rem);
+    color: rgba(255,255,255,0.85);
+    margin-top: 8px;
+    letter-spacing: 0.08em;
+    animation: fadeSlideUp 1s 2.1s both;
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity:0;
+    transform:translateY(30px);
+    }
+    to { opacity:1;
+    transform:translateY(0);
+    }
+  }
+
+  /* CTA Button */
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 32px;
+    padding: 16px 40px;
+    background: linear-gradient(135deg, var(--hot-pink), #ff6b35);
+    color: #fff;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    text-decoration: none;
+    border-radius: 50px;
+    box-shadow: 0 8px 30px rgba(255,45,120,0.5);
+    animation: fadeSlideUp 1s 2.4s both;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+  }
+  .hero-cta:hover { transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 14px 40px rgba(255,45,120,0.65);
+  }
+
+  /* Grassy meadow bottom */
+  .hero-ground {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 38%;
+    pointer-events: none;
+  }
+  .grass-svg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Graffiti tags on ground */
+  .graffiti-tag {
+    position: absolute;
+    bottom: 5%;
+    left: 5%;
+    font-family: 'Caveat', cursive;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--hot-pink);
+    opacity: 0.9;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    transform: rotate(-5deg);
+    z-index: 8;
+    animation: fadeSlideUp 1s 2.8s both;
+  }
+  .graffiti-tag2 {
+    position: absolute;
+    bottom: 5%;
+    right: 5%;
+    font-family: 'Caveat', cursive;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    opacity: 0.9;
+    text-shadow: 2px 2px 0 rgba(0,50,150,0.4);
+    transform: rotate(4deg);
+    z-index: 8;
+    animation: fadeSlideUp 1s 3s both;
+  }
+
+  /* Scroll indicator */
+  .scroll-hint {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 20;
+    animation: fadeSlideUp 1s 3.2s both;
+  }
+  .scroll-hint span { font-size: 0.75rem;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  }
+  .scroll-arrow { width: 24px;
+  height: 24px;
+  border-right: 3px solid rgba(255,255,255,0.7);
+  border-bottom: 3px solid rgba(255,255,255,0.7);
+  transform: rotate(45deg);
+  animation: bounce 1.5s ease-in-out infinite;
+  }
+  @keyframes bounce { 0%,100%{transform:rotate(45deg) translateY(0)} 50%{transform:rotate(45deg) translateY(8px)} }
+
+  /* ===== SECTIONS COMMON ===== */
+  section { position: relative;
+  overflow: hidden;
+  }
+  .section-inner { max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 40px;
+  }
+  .section-tag {
+    display: inline-block;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.9rem;
+    letter-spacing: 4px;
+    color: var(--hot-pink);
+    background: rgba(255,45,120,0.1);
+    padding: 4px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,45,120,0.3);
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Caveat', cursive;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  /* Reveal animations */
+  .reveal { opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s, transform 0.7s;
+  }
+  .reveal.visible { opacity: 1;
+  transform: translateY(0);
+  }
+  .reveal-left { opacity: 0;
+  transform: translateX(-50px);
+  transition: opacity 0.7s, transform 0.7s;
+  }
+  .reveal-left.visible { opacity: 1;
+  transform: translateX(0);
+  }
+  .reveal-right { opacity: 0;
+  transform: translateX(50px);
+  transition: opacity 0.7s, transform 0.7s;
+  }
+  .reveal-right.visible { opacity: 1;
+  transform: translateX(0);
+  }
+
+  /* ===== TEAM LINE ===== */
+  #team-line {
+    background: linear-gradient(135deg, #0a1628 0%, #0d2444 50%, #0a1e3a 100%);
+  }
+  #team-line .section-title { color: #fff; }
+  #team-line .section-tag { color: var(--electric-blue);
+  background: rgba(0,207,255,0.1);
+  border-color: rgba(0,207,255,0.3);
+  }
+
+  .team-line-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+  }
+  @media(max-width:768px) { .team-line-layout { grid-template-columns: 1fr; } }
+
+  /* Phone mockup */
+  .phone-mockup {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+  .phone-frame {
+    width: 260px;
+    background: #111;
+    border-radius: 40px;
+    padding: 16px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 2px #333, inset 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .phone-notch {
+    width: 80px;
+    height: 24px;
+    background: #000;
+    border-radius: 12px;
+    margin: 0 auto 12px;
+  }
+  .phone-screen {
+    background: #1a1a2e;
+    border-radius: 26px;
+    overflow: hidden;
+    min-height: 420px;
+  }
+  /* Video variant */
+  .phone-screen-video {
+    min-height: 420px;
+    position: relative;
+  }
+  .phone-video {
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    object-fit: cover;
+    display: block;
+    border-radius: 26px;
+    position: absolute;
+    inset: 0;
+  }
+  .phone-video-fallback {
+    position: absolute;
+    inset: 0;
+    border-radius: 26px;
+    background: linear-gradient(160deg, #1a1a3e 0%, #0d2a6e 40%, #0a4a6e 70%, #062a4a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .phone-video-fallback::after {
+    content: "▶";
+    font-size: 3rem;
+    color: rgba(255,255,255,0.3);
+  }
+  .line-header {
+    background: linear-gradient(90deg, #06c755, #00a040);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  .line-icon { width: 32px;
+  height: 32px;
+  background: #fff;
+  border-radius: 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.2rem;
+  }
+  .chat-area { padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  }
+  .chat-bubble {
+    max-width: 80%;
+    border-radius: 14px;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: #fff;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    padding: 0 12px;
+    margin: 0;
+    pointer-events: none;
+    transform: scale(0.8) translateY(8px);
+  }
+  .chat-bubble.received { background: #2d2d4e;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  }
+  .chat-bubble.sent { background: #06c755;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  }
+  .chat-bubble.msg-visible {
+    max-height: 120px;
+    padding: 8px 12px;
+    margin: 0;
+    pointer-events: auto;
+    animation: msgPop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+  @keyframes msgPop {
+    from { opacity:0;
+    transform:scale(0.75) translateY(12px);
+    }
+    to   { opacity:1;
+    transform:scale(1) translateY(0);
+    }
+  }
+  @keyframes msgFadeOut {
+    from { opacity:1;
+    transform:translateY(0);
+    }
+    to   { opacity:0;
+    transform:translateY(-6px);
+    }
+  }
+  .chat-bubble.msg-fadeout {
+    animation: msgFadeOut 0.3s ease forwards;
+  }
+
+  .phone-glow {
+    position: absolute;
+    inset: -20px;
+    background: radial-gradient(ellipse at center, rgba(6,199,85,0.2), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Line info cards */
+  .line-info { color: #fff; }
+  .line-info h2 { margin-bottom: 20px; }
+  .line-features { display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 28px;
+  }
+  .line-feature {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 18px 20px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .line-feature:hover { background: rgba(0,207,255,0.08);
+  transform: translateX(6px);
+  }
+  .line-feature-icon { font-size: 1.8rem;
+  flex-shrink: 0;
+  }
+  .line-feature h4 { color: var(--electric-blue);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+  }
+  .line-feature p { font-size: 0.82rem;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.6;
+  }
+
+  /* ===== ZOOM BG ===== */
+  #zoom-bg {
+    background: linear-gradient(180deg, #0a1628 0%, #0d1f3c 40%, #091422 100%);
+    position: relative;
+    overflow: hidden;
+    min-height: 100vh;
+  }
+  #zoom-bg::before {
+    content:'';
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(ellipse at 20% 80%, rgba(0,150,255,0.12), transparent 55%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,207,255,0.08), transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(255,45,120,0.05), transparent 70%);
+    pointer-events: none;
+  }
+  /* Floating starfield in zoom-bg */
+  #zoom-bg::after {
+    content:'';
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(1px 1px at 8% 12%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 22% 34%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 44% 8%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 67% 25%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 88% 15%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 15% 62%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 76% 58%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 33% 82%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 91% 74%, rgba(255,255,255,0.5) 0%, transparent 100%);
+    pointer-events: none;
+  }
+  #zoom-bg .section-title { color: #fff; }
+  #zoom-bg .section-tag { color: var(--electric-blue);
+  background: rgba(0,207,255,0.1);
+  border-color: rgba(0,207,255,0.3);
+  }
+  #zoom-bg p { color: rgba(255,255,255,0.7) !important; }
+
+  /* ===== PC SCENE (in-view triggered) ===== */
+  .zoom-pc-scene {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+  }
+  .zoom-pc-sticky {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* PC Monitor */
+  .pc-monitor-wrap {
+    position: relative;
+    width: min(900px, 92vw);
+    transform-origin: center center;
+    will-change: transform;
+  }
+  .pc-monitor {
+    position: relative;
+    background: #1a1f2e;
+    border-radius: 18px 18px 0 0;
+    padding: 12px 12px 0;
+    box-shadow:
+      0 0 0 2px #2a3050,
+      0 0 0 4px #1a1f2e,
+      0 40px 80px rgba(0,0,0,0.7),
+      0 0 120px rgba(0,100,255,0.15);
+    transition: box-shadow 0.3s;
+  }
+  /* Camera dot */
+  .pc-camera {
+    width: 8px;
+    height: 8px;
+    background: #333;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    position: relative;
+  }
+  .pc-camera::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: #555;
+    border-radius: 50%;
+  }
+  /* Screen bezel */
+  .pc-screen-bezel {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #050a14;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid #0d1525;
+  }
+  /* Screen inner content */
+  .pc-screen-content {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #0a1628 0%, #0d2444 60%, #0a1e3a 100%);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.5s 0.3s;
+  }
+  .pc-screen-content.visible { opacity: 1; }
+
+  /* Screen browser chrome */
+  .pc-browser-bar {
+    height: 28px;
+    background: #1e2540;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  .pc-browser-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .pc-browser-dot:nth-child(1) { background: #ff5f57; }
+  .pc-browser-dot:nth-child(2) { background: #ffbd2e; }
+  .pc-browser-dot:nth-child(3) { background: #28c840; }
+  .pc-browser-url {
+    flex: 1;
+    height: 16px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px;
+    margin: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.5px;
+  }
+
+  /* Inside screen: Zoom download page */
+  .pc-zoom-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 28px);
+    overflow: hidden;
+    position: relative;
+  }
+  .pc-zoom-hero {
+    padding: 16px 20px 10px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(0,30,80,0.9) 0%, transparent 100%);
+  }
+  .pc-zoom-hero-title {
+    font-family: 'Caveat', cursive;
+    font-size: clamp(1rem, 2.5vw, 1.8rem);
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0,207,255,0.6);
+    animation: screenFadeIn 0.6s 0.8s both;
+  }
+  .pc-zoom-hero-sub {
+    font-size: clamp(0.5rem, 1.2vw, 0.8rem);
+    color: rgba(255,255,255,0.6);
+    margin-top: 4px;
+    animation: screenFadeIn 0.6s 1.1s both;
+  }
+  @keyframes screenFadeIn {
+    from { opacity:0;
+    transform: translateY(8px);
+    }
+    to { opacity:1;
+    transform: translateY(0);
+    }
+  }
+
+  /* Single download card inside screen */
+  .pc-zoom-card-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px 16px;
+    animation: screenFadeIn 0.7s 1.3s both;
+  }
+  .pc-zoom-dl-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    overflow: hidden;
+    width: min(420px, 80%);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 40px rgba(0,150,255,0.1);
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+  }
+  .pc-zoom-dl-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 16px 50px rgba(0,0,0,0.6), 0 0 60px rgba(0,150,255,0.2);
+  }
+  .pc-zoom-img-wrap {
+    width: 100%;
+    aspect-ratio: 16/9;
+    position: relative;
+    overflow: hidden;
+  }
+  .pc-zoom-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s;
+  }
+  .pc-zoom-dl-card:hover .pc-zoom-img-wrap img { transform: scale(1.05); }
+  .pc-zoom-img-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #003d99 0%, #1a8fe3 50%, #5ecb6e 80%, #2d7a3a 100%);
+  }
+  /* Hover overlay */
+  .pc-zoom-hover-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,80,200,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    color: #fff;
+  }
+  .pc-zoom-dl-card:hover .pc-zoom-hover-overlay { opacity: 1; }
+  .pc-zoom-hover-overlay .dl-icon { font-size: clamp(1.2rem, 2.5vw, 1.8rem); }
+  .pc-zoom-hover-overlay span { font-size: clamp(0.6rem, 1.2vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 2px;
+  }
+  /* Card footer */
+  .pc-zoom-card-footer {
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .pc-zoom-card-name {
+    font-size: clamp(0.55rem, 1.1vw, 0.8rem);
+    color: rgba(255,255,255,0.85);
+    font-weight: 700;
+  }
+  .pc-dl-btn {
+    padding: 5px 12px;
+    background: linear-gradient(135deg, var(--electric-blue), var(--sky-top));
+    color: #fff;
+    font-weight: 700;
+    font-size: clamp(0.5rem, 0.9vw, 0.72rem);
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+  }
+  .pc-dl-btn:hover { transform: scale(1.06);
+  box-shadow: 0 4px 16px rgba(0,180,255,0.4);
+  }
+
+  /* PC stand */
+  .pc-stand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pc-stand-neck {
+    width: 80px;
+    height: 28px;
+    background: linear-gradient(180deg, #1e2540, #141928);
+    border-radius: 0 0 4px 4px;
+    box-shadow: inset 0 -4px 12px rgba(0,0,0,0.4);
+  }
+  .pc-stand-base {
+    width: 200px;
+    height: 14px;
+    background: linear-gradient(180deg, #1e2540, #10152a);
+    border-radius: 7px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  /* Glow under monitor */
+  .pc-glow {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 30px;
+    background: radial-gradient(ellipse, rgba(0,150,255,0.35) 0%, transparent 70%);
+    filter: blur(10px);
+    pointer-events: none;
+  }
+
+  /* Floating label tags around monitor */
+  .pc-float-tag {
+    position: absolute;
+    background: var(--hot-pink);
+    color: #fff;
+    font-family: 'Caveat', cursive;
+    font-size: clamp(0.7rem, 1.5vw, 1rem);
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    box-shadow: 0 6px 20px rgba(255,45,120,0.4);
+    white-space: nowrap;
+    opacity: 0;
+    transform: scale(0.7) rotate(-8deg);
+    transition: opacity 0.5s, transform 0.5s;
+    pointer-events: none;
+  }
+  .pc-float-tag.show {
+    opacity: 1;
+    transform: scale(1) rotate(-8deg);
+  }
+  .pc-float-tag-2 {
+    background: var(--sun-yellow);
+    color: var(--dark);
+    transform: scale(0.7) rotate(6deg);
+    animation: none;
+  }
+  .pc-float-tag-2.show {
+    opacity: 1;
+    transform: scale(1) rotate(6deg);
+  }
+  .pc-float-tag-3 {
+    background: var(--electric-blue);
+    color: var(--dark);
+    transform: scale(0.7) rotate(-4deg);
+  }
+  .pc-float-tag-3.show {
+    opacity: 1;
+    transform: scale(1) rotate(-4deg);
+  }
+
+  /* Screen scan line effect */
+  .pc-scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+  /* Screen reflection */
+  .pc-reflection {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+      rgba(255,255,255,0.06) 0%,
+      transparent 40%,
+      transparent 60%,
+      rgba(255,255,255,0.02) 100%
+    );
+    pointer-events: none;
+    z-index: 11;
+  }
+
+  /* Entry animations for the whole PC */
+  @keyframes pcEntrance {
+    0% { opacity: 0;
+    transform: scale(2.8) translateY(60px);
+    }
+    60% { opacity: 1; }
+    100% { opacity: 1;
+    transform: scale(1) translateY(0);
+    }
+  }
+  @keyframes pcFloat {
+    0%,100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+
+  /* Instruction text (unused, kept removed) */
+
+  /* DL btn (old style, keep for compat) */
+  .dl-btn {
+    padding: 8px 18px;
+    background: linear-gradient(135deg, var(--sky-mid), var(--sky-top));
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dl-btn:hover { transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0,100,200,0.3);
+  }
+  
+  /* ===== FOOTER ===== */
+  footer {
+    background: #05101f;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    padding: 48px 20px;
+  }
+  footer .footer-logo {
+    font-family: 'Caveat', cursive;
+    font-size: 3rem;
+    color: #fff;
+    text-shadow: 0 0 30px rgba(0,207,255,0.4);
+    margin-bottom: 12px;
+  }
+  footer p { font-size: 0.85rem;
+  margin-top: 6px;
+  }
+
+  /* Floating particles */
+  .particles { position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+  }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: particleDrift linear infinite;
+    opacity: 0;
+  }
+  @keyframes particleDrift {
+    0% { opacity:0;
+    transform: translateY(0) rotate(0deg);
+    }
+    10% { opacity:0.6; }
+    90% { opacity:0.3; }
+    100% { opacity:0;
+    transform: translateY(-100vh) rotate(360deg);
+    }
+  }
+
+  /* Animated writing title */
+  .title-write-anim {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 4px solid rgba(255,255,255,0.8);
+    animation: typeWrite 1.8s steps(10) 0.3s both, blinkCursor 0.8s step-end 2.2s 4;
+  }
+  @keyframes typeWrite {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+  @keyframes blinkCursor {
+    50% { border-color: transparent; }
+  }
+
+  /* Floating badge */
+  .float-badge {
+    position: absolute;
+    background: var(--hot-pink);
+    color: #fff;
+    font-family: 'Caveat', cursive;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 8px 18px;
+    border-radius: 30px;
+    box-shadow: 0 8px 24px rgba(255,45,120,0.4);
+    animation: floatBadge 3s ease-in-out infinite;
+    z-index: 15;
+    white-space: nowrap;
+    transform: rotate(-8deg);
+  }
+  .float-badge-2 {
+    animation-delay: 1.5s;
+    background: var(--sun-yellow);
+    color: var(--dark);
+    transform: rotate(6deg);
+  }
+  @keyframes floatBadge {
+    0%,100% { transform: rotate(-8deg) translateY(0); }
+    50% { transform: rotate(-8deg) translateY(-10px); }
+  }
+  .float-badge-2 { animation: floatBadge2 3s ease-in-out infinite; }
+  @keyframes floatBadge2 {
+    0%,100% { transform: rotate(6deg) translateY(0); }
+    50% { transform: rotate(6deg) translateY(-12px); }
+  }
+
+  /* Section decorative wave */
+  .wave-divider {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    overflow: hidden;
+    line-height: 0;
+  }
+  .wave-divider svg { display: block;
+  width: 100%;
+  height: 60px;
+  }
+
+  /* ===== MOBILE/TABLET NOTICE OVERLAY ===== */
+  .mobile-notice-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(2, 8, 20, 0.85);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .mobile-notice-overlay[hidden] { display: none; }
+  .mobile-notice-card {
+    max-width: 340px;
+    width: 100%;
+    background: linear-gradient(135deg, #0d2444 0%, #0a1628 100%);
+    border: 1px solid rgba(0, 207, 255, 0.35);
+    border-radius: 20px;
+    padding: 32px 26px 26px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 207, 255, 0.15);
+    font-family: 'Noto Sans JP', sans-serif;
+    animation: mobileNoticeIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes mobileNoticeIn {
+    from { opacity: 0; transform: scale(0.9) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .mobile-notice-icon {
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+  }
+  .mobile-notice-text {
+    color: #fff;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .mobile-notice-btn {
+    margin-top: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 13px 20px;
+    background: linear-gradient(135deg, var(--electric-blue), var(--sky-top));
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 207, 255, 0.35);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .mobile-notice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(0, 207, 255, 0.5);
+  }
+</style>
+</head>
+<body>
+
+<!-- Mobile/Tablet notice overlay -->
+<div class="mobile-notice-overlay" id="mobileNoticeOverlay" hidden>
+  <div class="mobile-notice-card">
+    <div class="mobile-notice-icon">🖥️</div>
+    <div class="mobile-notice-text">パソコンと同じ表示のため、<br>拡大してご覧ください</div>
+    <button type="button" class="mobile-notice-btn" id="mobileNoticeConfirmBtn">確認しました</button>
+  </div>
+</div>
+
+<!-- Floating particles -->
+<div class="particles" id="particles"></div>
+
+<!-- Navbar -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <div class="nav-logo">Playground</div>
+    <div class="nav-links">
+      <a class="nav-link" href="https://link-event-x.com/" target="_blank" rel="noopener noreferrer">LINKスケジュール</a>
+      <a class="nav-link" href="https://arisagumi-sanjyou.link/" target="_blank" rel="noopener noreferrer">アリサ組スケジュール</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section id="hero">
+  <div class="sky-bg"></div>
+
+  <!-- Realistic SVG Clouds -->
+  <div class="clouds">
+    <!-- Cloud 1: large fluffy -->
+    <svg class="cloud-svg cloud-svg-1" viewBox="0 0 380 120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="c1blur"><feGaussianBlur stdDeviation="1.5"/></filter>
+        <linearGradient id="c1g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#e8f4ff"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="190" cy="85" rx="175" ry="32" fill="rgba(200,225,255,0.4)" filter="url(#c1blur)"/>
+      <ellipse cx="140" cy="72" rx="100" ry="45" fill="url(#c1g)"/>
+      <ellipse cx="220" cy="68" rx="115" ry="50" fill="url(#c1g)"/>
+      <ellipse cx="295" cy="78" rx="80" ry="38" fill="url(#c1g)"/>
+      <ellipse cx="85" cy="78" rx="70" ry="34" fill="url(#c1g)"/>
+      <ellipse cx="170" cy="52" rx="65" ry="40" fill="#ffffff"/>
+      <ellipse cx="240" cy="46" rx="75" ry="45" fill="#ffffff"/>
+      <ellipse cx="310" cy="62" rx="55" ry="32" fill="#f0f8ff"/>
+    </svg>
+
+    <!-- Cloud 2: wide layered -->
+    <svg class="cloud-svg cloud-svg-2" viewBox="0 0 500 130" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="c2blur"><feGaussianBlur stdDeviation="2"/></filter>
+        <linearGradient id="c2g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#deeeff"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="250" cy="100" rx="240" ry="28" fill="rgba(180,215,255,0.35)" filter="url(#c2blur)"/>
+      <ellipse cx="180" cy="85" rx="120" ry="42" fill="url(#c2g)"/>
+      <ellipse cx="280" cy="80" rx="140" ry="48" fill="url(#c2g)"/>
+      <ellipse cx="380" cy="88" rx="110" ry="38" fill="url(#c2g)"/>
+      <ellipse cx="100" cy="90" rx="90" ry="35" fill="url(#c2g)"/>
+      <ellipse cx="200" cy="58" rx="80" ry="45" fill="#ffffff"/>
+      <ellipse cx="290" cy="50" rx="95" ry="50" fill="#ffffff"/>
+      <ellipse cx="370" cy="65" rx="70" ry="38" fill="#f5fbff"/>
+      <ellipse cx="130" cy="68" rx="60" ry="35" fill="#f8fdff"/>
+    </svg>
+
+    <!-- Cloud 3: small puffy -->
+    <svg class="cloud-svg cloud-svg-3" viewBox="0 0 280 90" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="c3g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#e0f0ff"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="140" cy="68" rx="130" ry="20" fill="rgba(200,225,255,0.3)"/>
+      <ellipse cx="100" cy="58" rx="80" ry="32" fill="url(#c3g)"/>
+      <ellipse cx="175" cy="55" rx="90" ry="35" fill="url(#c3g)"/>
+      <ellipse cx="125" cy="40" rx="55" ry="32" fill="#ffffff"/>
+      <ellipse cx="195" cy="38" rx="60" ry="34" fill="#ffffff"/>
+    </svg>
+
+    <!-- Cloud 4: large dramatic -->
+    <svg class="cloud-svg cloud-svg-4" viewBox="0 0 450 140" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="c4blur"><feGaussianBlur stdDeviation="1.8"/></filter>
+        <linearGradient id="c4g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#d8ecff"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="225" cy="110" rx="215" ry="28" fill="rgba(190,220,255,0.4)" filter="url(#c4blur)"/>
+      <ellipse cx="160" cy="90" rx="110" ry="46" fill="url(#c4g)"/>
+      <ellipse cx="260" cy="84" rx="130" ry="52" fill="url(#c4g)"/>
+      <ellipse cx="360" cy="92" rx="100" ry="42" fill="url(#c4g)"/>
+      <ellipse cx="80" cy="96" rx="80" ry="36" fill="url(#c4g)"/>
+      <ellipse cx="190" cy="56" rx="72" ry="46" fill="#ffffff"/>
+      <ellipse cx="268" cy="46" rx="90" ry="52" fill="#ffffff"/>
+      <ellipse cx="348" cy="62" rx="68" ry="40" fill="#f8fbff"/>
+    </svg>
+
+    <!-- Cloud 5: wispy small -->
+    <svg class="cloud-svg cloud-svg-5" viewBox="0 0 220 70" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="c5blur"><feGaussianBlur stdDeviation="1.5"/></filter>
+      </defs>
+      <ellipse cx="110" cy="50" rx="105" ry="16" fill="rgba(220,235,255,0.4)" filter="url(#c5blur)"/>
+      <ellipse cx="80" cy="44" rx="65" ry="24" fill="rgba(255,255,255,0.9)"/>
+      <ellipse cx="145" cy="42" rx="70" ry="26" fill="rgba(255,255,255,0.9)"/>
+      <ellipse cx="110" cy="30" rx="45" ry="26" fill="#ffffff"/>
+    </svg>
+  </div>
+
+  <!-- Sun -->
+  <div class="sun">
+    <div class="sun-rays"></div>
+  </div>
+
+  <!-- Sparkles -->
+  <div class="sparkles" id="sparkles"></div>
+
+  <!-- Floating badges -->
+  <div class="float-badge" style="top:140px; left:7%;">LIFE IS PLAY 🎮</div>
+  <div class="float-badge float-badge-2" style="top:160px; right:8%;">WORLD IS OURS 👑</div>
+
+  <!-- Main content -->
+  <div class="hero-content">
+    <div class="title-svg-wrapper">
+      <div class="playground-title title-write-anim">Playground</div>
+    </div>
+    <div class="hero-tagline">遊びも仕事も本気の人々</div>
+    <div class="hero-sub"></div>
+<!--<a href="#team-line" class="hero-cta">チームに参加する ✦</a>-->
+  </div>
+
+  <!-- Earth Globe — realistic, partially visible -->
+  <div class="earth-wrap">
+    <div class="earth-atmos"></div>
+    <div class="earth-sphere">
+      <!-- Deep ocean -->
+      <div class="earth-ocean"></div>
+      <!-- Land masses (SVG, duplicated for seamless scroll) -->
+      <div class="earth-land">
+        <svg viewBox="0 0 2000 1000" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <!-- Ocean tones -->
+          <rect width="2000" height="1000" fill="none"/>
+          <!-- Ocean depth bands -->
+          <ellipse cx="700" cy="600" rx="350" ry="200" fill="rgba(10,50,140,0.3)"/>
+          <ellipse cx="1400" cy="300" rx="280" ry="150" fill="rgba(8,40,120,0.25)"/>
+
+          <!-- North America -->
+          <path d="M 180 120 Q 200 90 260 100 Q 340 95 390 130 Q 430 160 420 220 Q 410 265 385 295 Q 360 325 330 335 Q 295 345 265 325 Q 235 305 215 270 Q 190 230 178 185 Q 165 148 180 120 Z" fill="#3a8a3e"/>
+          <path d="M 250 320 Q 275 300 300 310 Q 330 325 335 360 Q 338 400 315 430 Q 290 458 260 455 Q 232 448 220 420 Q 208 390 215 355 Q 222 330 250 320 Z" fill="#2e7d32"/>
+          <!-- Greenland -->
+          <path d="M 290 30 Q 330 15 370 28 Q 400 45 395 75 Q 382 100 350 105 Q 318 102 302 78 Q 286 55 290 30 Z" fill="#c8e6c9" opacity="0.9"/>
+          <path d="M 310 35 Q 340 22 368 35 Q 385 50 378 72 Q 365 88 342 88 Q 318 84 307 65 Q 298 48 310 35 Z" fill="#e8f5e9"/>
+
+          <!-- South America -->
+          <path d="M 320 480 Q 345 462 375 468 Q 410 475 425 510 Q 440 548 435 590 Q 428 635 408 668 Q 385 698 355 705 Q 323 708 303 688 Q 280 662 278 628 Q 274 585 285 542 Q 296 502 320 480 Z" fill="#388e3c"/>
+          <path d="M 295 660 Q 315 640 340 650 Q 358 662 355 692 Q 348 718 325 722 Q 303 720 293 698 Q 284 678 295 660 Z" fill="#2e7d32"/>
+
+          <!-- Europe -->
+          <path d="M 740 100 Q 762 82 795 88 Q 830 95 845 118 Q 858 142 848 168 Q 835 192 808 200 Q 778 205 756 188 Q 730 168 730 138 Q 728 116 740 100 Z" fill="#43a047"/>
+          <!-- Scandinavia -->
+          <path d="M 775 48 Q 798 28 825 35 Q 848 48 848 75 Q 845 102 822 112 Q 798 118 782 100 Q 764 80 775 48 Z" fill="#4caf50"/>
+          <!-- UK -->
+          <path d="M 718 115 Q 732 102 748 110 Q 760 122 755 140 Q 746 155 730 152 Q 716 142 716 128 Q 714 120 718 115 Z" fill="#66bb6a"/>
+          <!-- Iberian Peninsula -->
+          <path d="M 710 148 Q 730 135 752 142 Q 772 152 772 175 Q 770 200 750 210 Q 728 215 714 200 Q 700 182 710 148 Z" fill="#4caf50"/>
+
+          <!-- Africa -->
+          <path d="M 758 230 Q 788 215 820 222 Q 858 232 872 265 Q 888 302 882 345 Q 875 390 858 428 Q 838 465 808 480 Q 775 492 745 480 Q 712 465 698 430 Q 680 388 682 340 Q 682 292 700 258 Q 718 232 758 230 Z" fill="#4caf50"/>
+          <!-- Sahara highlight -->
+          <ellipse cx="790" cy="280" rx="55" ry="30" fill="#8d6e3a" opacity="0.55"/>
+          <!-- Sub-Sahara -->
+          <ellipse cx="788" cy="390" rx="48" ry="42" fill="#388e3c" opacity="0.5"/>
+          <!-- Madagascar -->
+          <path d="M 878 370 Q 888 358 898 365 Q 906 376 902 395 Q 896 410 884 408 Q 873 402 873 386 Q 871 375 878 370 Z" fill="#558b2f"/>
+
+          <!-- Asia main body -->
+          <path d="M 870 80 Q 940 55 1040 65 Q 1130 72 1195 100 Q 1255 125 1268 162 Q 1278 198 1260 228 Q 1240 255 1200 265 Q 1155 272 1105 258 Q 1060 244 1018 228 Q 970 210 932 192 Q 885 170 868 138 Q 852 108 870 80 Z" fill="#388e3c"/>
+          <!-- Central Asia steppes -->
+          <ellipse cx="1050" cy="160" rx="130" ry="55" fill="#6d8f3a" opacity="0.45"/>
+          <!-- Siberia -->
+          <path d="M 900 30 Q 970 15 1070 22 Q 1160 30 1220 55 Q 1260 72 1255 95 Q 1240 110 1190 112 Q 1120 112 1050 100 Q 970 88 920 75 Q 885 62 900 30 Z" fill="#558b2f" opacity="0.8"/>
+          <!-- India -->
+          <path d="M 990 255 Q 1018 242 1042 252 Q 1065 265 1068 298 Q 1070 332 1050 358 Q 1028 380 1002 378 Q 976 372 963 348 Q 948 318 950 285 Q 952 262 990 255 Z" fill="#4caf50"/>
+          <!-- Arabian Peninsula -->
+          <path d="M 868 240 Q 892 228 918 238 Q 938 250 940 278 Q 940 308 920 322 Q 898 332 878 320 Q 858 305 856 278 Q 853 255 868 240 Z" fill="#c4a24a" opacity="0.8"/>
+          <!-- Southeast Asia -->
+          <path d="M 1118 248 Q 1148 235 1175 248 Q 1198 262 1198 292 Q 1196 322 1172 335 Q 1148 344 1126 330 Q 1102 314 1102 282 Q 1100 260 1118 248 Z" fill="#43a047"/>
+          <!-- Malay Peninsula -->
+          <path d="M 1155 330 Q 1165 320 1175 328 Q 1182 338 1178 355 Q 1172 368 1160 365 Q 1148 358 1148 342 Q 1146 334 1155 330 Z" fill="#4caf50" opacity="0.85"/>
+          <!-- Japan -->
+          <path d="M 1262 128 Q 1276 112 1294 120 Q 1308 134 1302 155 Q 1292 170 1276 165 Q 1260 155 1262 128 Z" fill="#66bb6a"/>
+          <path d="M 1275 108 Q 1284 98 1295 104 Q 1304 114 1298 126 Q 1290 133 1280 128 Q 1271 120 1275 108 Z" fill="#81c784"/>
+
+          <!-- Australia -->
+          <path d="M 1218 480 Q 1265 458 1325 465 Q 1382 472 1415 505 Q 1445 538 1438 580 Q 1430 625 1398 650 Q 1362 672 1318 668 Q 1272 662 1245 632 Q 1215 598 1215 555 Q 1212 512 1218 480 Z" fill="#6d8f2e"/>
+          <!-- Australia desert interior -->
+          <ellipse cx="1325" cy="568" rx="68" ry="52" fill="#c4a24a" opacity="0.45"/>
+          <!-- New Zealand -->
+          <path d="M 1455 570 Q 1465 558 1476 566 Q 1484 578 1480 596 Q 1474 610 1462 607 Q 1451 598 1452 582 Q 1451 574 1455 570 Z" fill="#558b2f"/>
+
+          <!-- Antarctica -->
+          <path d="M 100 940 Q 400 910 700 920 Q 1000 928 1300 912 Q 1600 900 1900 918 L 2000 1000 L 0 1000 Z" fill="#e3f2fd" opacity="0.9"/>
+          <path d="M 200 958 Q 500 938 800 945 Q 1100 950 1400 935 Q 1650 922 1900 940 L 2000 1000 L 0 1000 Z" fill="#ffffff" opacity="0.7"/>
+
+          <!-- Arctic ice cap -->
+          <ellipse cx="1000" cy="0" rx="400" ry="60" fill="#e8f5e9" opacity="0.8"/>
+          <ellipse cx="1000" cy="-10" rx="280" ry="45" fill="#ffffff" opacity="0.6"/>
+
+          <!-- Duplicate for seamless loop (offset by 1000px) -->
+          <!-- North America (copy) -->
+          <path d="M 1180 120 Q 1200 90 1260 100 Q 1340 95 1390 130 Q 1430 160 1420 220 Q 1410 265 1385 295 Q 1360 325 1330 335 Q 1295 345 1265 325 Q 1235 305 1215 270 Q 1190 230 1178 185 Q 1165 148 1180 120 Z" fill="#3a8a3e"/>
+          <path d="M 1250 320 Q 1275 300 1300 310 Q 1330 325 1335 360 Q 1338 400 1315 430 Q 1290 458 1260 455 Q 1232 448 1220 420 Q 1208 390 1215 355 Q 1222 330 1250 320 Z" fill="#2e7d32"/>
+          <path d="M 1290 30 Q 1330 15 1370 28 Q 1400 45 1395 75 Q 1382 100 1350 105 Q 1318 102 1302 78 Q 1286 55 1290 30 Z" fill="#c8e6c9" opacity="0.9"/>
+          <!-- South America (copy) -->
+          <path d="M 1320 480 Q 1345 462 1375 468 Q 1410 475 1425 510 Q 1440 548 1435 590 Q 1428 635 1408 668 Q 1385 698 1355 705 Q 1323 708 1303 688 Q 1280 662 1278 628 Q 1274 585 1285 542 Q 1296 502 1320 480 Z" fill="#388e3c"/>
+        </svg>
+      </div>
+
+      <!-- Cloud layer (SVG) -->
+      <div class="earth-clouds">
+        <svg viewBox="0 0 2000 1000" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <!-- Cloud systems -->
+          <ellipse cx="350" cy="180" rx="140" ry="22" fill="rgba(255,255,255,0.52)"/>
+          <ellipse cx="380" cy="165" rx="90" ry="28" fill="rgba(255,255,255,0.58)"/>
+          <ellipse cx="480" cy="175" rx="70" ry="18" fill="rgba(255,255,255,0.45)"/>
+
+          <ellipse cx="820" cy="300" rx="110" ry="18" fill="rgba(255,255,255,0.48)"/>
+          <ellipse cx="850" cy="285" rx="75" ry="24" fill="rgba(255,255,255,0.54)"/>
+
+          <ellipse cx="1100" cy="140" rx="130" ry="20" fill="rgba(255,255,255,0.5)"/>
+          <ellipse cx="1140" cy="125" rx="85" ry="25" fill="rgba(255,255,255,0.55)"/>
+
+          <ellipse cx="600" cy="450" rx="100" ry="16" fill="rgba(255,255,255,0.42)"/>
+          <ellipse cx="630" cy="438" rx="65" ry="20" fill="rgba(255,255,255,0.48)"/>
+
+          <ellipse cx="1350" cy="380" rx="120" ry="19" fill="rgba(255,255,255,0.46)"/>
+          <ellipse cx="1380" cy="366" rx="78" ry="23" fill="rgba(255,255,255,0.52)"/>
+
+          <ellipse cx="200" cy="550" rx="95" ry="15" fill="rgba(255,255,255,0.38)"/>
+          <ellipse cx="225" cy="538" rx="60" ry="19" fill="rgba(255,255,255,0.44)"/>
+
+          <ellipse cx="950" cy="600" rx="108" ry="17" fill="rgba(255,255,255,0.4)"/>
+          <ellipse cx="980" cy="588" rx="70" ry="21" fill="rgba(255,255,255,0.46)"/>
+
+          <!-- Hurricane/spiral hint -->
+          <ellipse cx="430" cy="340" rx="55" ry="55" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="8"/>
+          <ellipse cx="430" cy="340" rx="30" ry="30" fill="rgba(255,255,255,0.15)"/>
+
+          <!-- Duplicates for seamless loop -->
+          <ellipse cx="1350" cy="180" rx="140" ry="22" fill="rgba(255,255,255,0.52)"/>
+          <ellipse cx="1380" cy="165" rx="90" ry="28" fill="rgba(255,255,255,0.58)"/>
+          <ellipse cx="1820" cy="300" rx="110" ry="18" fill="rgba(255,255,255,0.48)"/>
+          <ellipse cx="1850" cy="285" rx="75" ry="24" fill="rgba(255,255,255,0.54)"/>
+          <ellipse cx="1600" cy="450" rx="100" ry="16" fill="rgba(255,255,255,0.42)"/>
+          <ellipse cx="1430" cy="340" rx="55" ry="55" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="8"/>
+        </svg>
+      </div>
+
+      <!-- Specular highlight -->
+      <div class="earth-specular"></div>
+      <!-- Night terminator -->
+      <div class="earth-terminator"></div>
+    </div>
+  </div>
+
+  <!-- HIDDEN hero-ground placeholder -->
+  <div class="hero-ground" style="display:none">
+    <svg class="grass-svg" viewBox="0 0 1440 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gGrad2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(60,160,70,0)"/>
+          <stop offset="35%" stop-color="rgba(46,130,55,0.55)"/>
+          <stop offset="100%" stop-color="#2a7038"/>
+        </linearGradient>
+      </defs>
+      <!-- Soft ground blend -->
+      <path d="M0 100 Q180 50 360 75 Q540 40 720 65 Q900 35 1080 68 Q1260 45 1440 72 L1440 300 L0 300 Z"
+        fill="url(#gGrad2)"/>
+      <!-- Grass blades -->
+      <g fill="#3db852" opacity="0.8">
+        <path d="M80 100 Q87 55 94 100"/>
+        <path d="M160 98 Q167 52 174 98"/>
+        <path d="M260 95 Q267 50 274 95"/>
+        <path d="M380 99 Q387 54 394 99"/>
+        <path d="M500 97 Q507 51 514 97"/>
+        <path d="M630 100 Q637 54 644 100"/>
+        <path d="M770 98 Q777 52 784 98"/>
+        <path d="M910 96 Q917 50 924 96"/>
+        <path d="M1050 99 Q1057 53 1064 99"/>
+        <path d="M1200 97 Q1207 51 1214 97"/>
+        <path d="M1370 100 Q1377 54 1384 100"/>
+      </g>
+      <g fill="#52d460" opacity="0.55">
+        <path d="M120 99 Q126 62 132 99"/>
+        <path d="M220 97 Q227 59 233 97"/>
+        <path d="M330 100 Q337 62 343 100"/>
+        <path d="M450 98 Q456 60 463 98"/>
+        <path d="M570 99 Q576 62 583 99"/>
+        <path d="M700 97 Q707 60 713 97"/>
+        <path d="M840 100 Q847 62 854 100"/>
+        <path d="M980 98 Q987 60 994 98"/>
+        <path d="M1120 99 Q1127 62 1134 99"/>
+        <path d="M1290 97 Q1297 60 1304 97"/>
+      </g>
+      <!-- Wildflowers scattered -->
+      <circle cx="195" cy="97" r="5" fill="#ffeb3b" opacity="0.9"/>
+      <circle cx="195" cy="97" r="2.5" fill="#ff9800"/>
+      <circle cx="420" cy="95" r="4" fill="#ff80ab" opacity="0.85"/>
+      <circle cx="680" cy="96" r="5" fill="#fff" opacity="0.95"/>
+      <circle cx="680" cy="96" r="2.2" fill="#ffe000"/>
+      <circle cx="900" cy="97" r="4.5" fill="#ffeb3b" opacity="0.9"/>
+      <circle cx="1110" cy="95" r="4" fill="#ff80ab" opacity="0.85"/>
+      <circle cx="1330" cy="96" r="5" fill="#fff" opacity="0.9"/>
+      <circle cx="540" cy="98" r="3.5" fill="#ce93d8" opacity="0.85"/>
+      <circle cx="1020" cy="97" r="4" fill="#ffcc02" opacity="0.9"/>
+    </svg>
+  </div>
+
+
+
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-arrow"></div>
+  </div>
+
+  <div class="wave-divider">
+    <svg viewBox="0 0 1440 60" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <path d="M0 0 Q360 60 720 30 Q1080 0 1440 50 L1440 60 L0 60 Z" fill="#0a1628"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ===== TEAM LINE ===== -->
+<section id="team-line">
+  <div class="section-inner">
+    <div class="team-line-layout">
+      <!-- Phone with video -->
+      <div class="phone-mockup reveal-left">
+        <div class="phone-glow"></div>
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <div class="phone-screen phone-screen-video">
+            <video id="teamLineVideo" class="phone-video" autoplay muted loop playsinline webkit-playsinline="true" preload="auto">
+              <source src="img/line.mp4" type="video/mp4">
+              <!-- フォールバック: 動画がない場合はグラデーション表示 -->
+            </video>
+            <div class="phone-video-fallback"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="line-info reveal-right">
+        <div class="section-tag">TEAM LINE</div>
+        <h2 class="section-title">チームLINEの<br>使い方</h2>
+        <p style="color:rgba(255,255,255,0.65);margin:16px 0 0;font-size:0.95rem;line-height:1.8;">
+          Playgroundのチームグループは、ただの連絡ツールじゃない。<br>
+          遊びながら学べる、熱くなれる仲間との空間。
+        </p>
+        <div class="line-features">
+          <div class="line-feature reveal">
+            <div class="line-feature-icon">🎯</div>
+            <div>
+              <h4>イベント告知＆募集</h4>
+              <p>Zoom勉強会、オフ会、リアルイベントの案内がいち早く届く。参加して仲間と繋がろう。</p>
+            </div>
+          </div>
+          <div class="line-feature reveal" style="transition-delay:0.1s">
+            <div class="line-feature-icon">🤝</div>
+            <div>
+              <h4>新メンバー紹介</h4>
+              <p>毎月新しい仲間が加わる。自己紹介とウェルカムの温かいやりとりでチームの絆が深まる。</p>
+            </div>
+          </div>
+          <div class="line-feature reveal" style="transition-delay:0.2s">
+            <div class="line-feature-icon">🎉</div>
+            <div>
+              <h4>メンバー間のお祝い</h4>
+              <p>誕生日、記念日、目標達成など、仲間の大切な瞬間をみんなで祝い合う温かいコミュニティ。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ZOOM BG ===== -->
+<section id="zoom-bg">
+  <!-- Section header (outside scroll scene) -->
+  <div class="section-inner" style="padding-bottom:0;position:relative;z-index:5">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag">ZOOM BACKGROUND</div>
+      <h2 class="section-title">Zoom背景を<br>ダウンロード</h2>
+      <p style="margin-top:12px;font-size:0.95rem">Playground公式Zoom背景をゲット！</p>
+    </div>
+  </div>
+
+  <!-- PC scroll scene -->
+  <div class="zoom-pc-scene" id="zoomPcScene">
+    <div class="zoom-pc-sticky" id="zoomPcSticky">
+
+      <!-- Floating label tags -->
+      <div class="pc-float-tag" id="pcTag1" style="top:15%;left:5%">🎉 FREE DL</div>
+      <div class="pc-float-tag pc-float-tag-2" id="pcTag2" style="top:12%;right:6%">📥 1クリック！</div>
+      <div class="pc-float-tag pc-float-tag-3" id="pcTag3" style="bottom:22%;left:4%">✨ Playground公式</div>
+
+      <!-- Monitor wrap (scale animated by JS) -->
+      <div class="pc-monitor-wrap" id="pcMonitorWrap">
+        <!-- Monitor body -->
+        <div class="pc-monitor" id="pcMonitor">
+          <!-- Camera -->
+          <div class="pc-camera"></div>
+          <!-- Screen bezel -->
+          <div class="pc-screen-bezel">
+            <!-- Screen content -->
+            <div class="pc-screen-content" id="pcScreenContent">
+              <!-- Scanlines & reflection -->
+              <div class="pc-scanlines"></div>
+              <div class="pc-reflection"></div>
+              <!-- Browser chrome bar -->
+              <div class="pc-browser-bar">
+                <div class="pc-browser-dot"></div>
+                <div class="pc-browser-dot"></div>
+                <div class="pc-browser-dot"></div>
+                <div class="pc-browser-url">🔒 playground.community/zoom-bg</div>
+              </div>
+              <!-- Zoom download page inside screen -->
+              <div class="pc-zoom-page">
+                <div class="pc-zoom-hero">
+                  <div class="pc-zoom-hero-title">🖥️ Zoom背景ダウンロード</div>
+                  <div class="pc-zoom-hero-sub">Playgroundオリジナル Zoom背景 — 使って気分UP！</div>
+                </div>
+                <div class="pc-zoom-card-wrap">
+                  <div class="pc-zoom-dl-card" id="pcZoomCard">
+                    <div class="pc-zoom-img-wrap">
+                      <img src="img/zoom1.png" alt="Playground Zoom Background 1"
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                      <div class="pc-zoom-img-placeholder" style="display:none;position:absolute;inset:0"></div>
+                      <div class="pc-zoom-hover-overlay">
+                        <div class="dl-icon">⬇️</div>
+                        <span>ダウンロードする</span>
+                      </div>
+                    </div>
+                    <div class="pc-zoom-card-footer">
+                      <span class="pc-zoom-card-name">Playground Zoom背景</span>
+                      <button class="pc-dl-btn" id="pcDlBtn">⬇ DL</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stand -->
+        <div class="pc-stand">
+          <div class="pc-stand-neck"></div>
+          <div class="pc-stand-base"></div>
+        </div>
+
+        <!-- Glow -->
+        <div class="pc-glow"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== WORLD MAJI SECTION ===== -->
+<section id="world-maji">
+  <div id="mapTooltip" class="map-tooltip"></div>
+  <div class="section-inner">
+    <h2 class="section-title">PLAYGROUND MAP</h2>
+    
+    <div class="japan-map-wrapper">
+      <div class="map-container">
+        <svg class="japan-svg" viewBox="0 0 800 650" xmlns="http://www.w3.org/2000/svg">
+          <g id="prefectures">
+            <path class="pref-path" data-name="北海道" d="M630,40 L740,60 L780,120 L720,180 L670,190 L610,170 L580,120 Z" />
+            <path class="pref-path" data-name="青森県" d="M570,180 L600,185 L610,210 L565,220 Z" />
+            <path class="pref-path" data-name="岩手県" d="M580,220 L615,225 L610,265 L580,260 Z" />
+            <path class="pref-path" data-name="秋田県" d="M550,220 L580,220 L580,260 L550,255 Z" />
+            <path class="pref-path" data-name="宮城県" d="M575,260 L610,265 L600,305 L575,295 Z" />
+            <path class="pref-path" data-name="山形県" d="M545,260 L575,260 L575,295 L545,290 Z" />
+            <path class="pref-path" data-name="福島県" d="M540,290 L600,305 L590,340 L540,330 Z" />
+            <path class="pref-path" data-name="茨城県" d="M565,340 L590,340 L580,380 L560,375 Z" />
+            <path class="pref-path" data-name="栃木県" d="M545,335 L565,340 L560,375 L540,370 Z" />
+            <path class="pref-path" data-name="群馬県" d="M520,340 L545,335 L540,370 L515,365 Z" />
+            <path class="pref-path" data-name="埼玉県" d="M515,365 L560,375 L555,390 L515,385 Z" />
+            <path class="pref-path" data-name="千葉県" d="M555,390 L580,380 L580,420 L560,420 Z" />
+            <path class="pref-path" data-name="東京都" d="M515,385 L555,390 L550,405 L520,400 Z" />
+            <path class="pref-path" data-name="神奈川県" d="M515,400 L550,405 L540,425 L510,415 Z" />
+            <path class="pref-path" data-name="新潟県" d="M500,310 L540,290 L540,330 L520,340 L490,340 Z" />
+            <path class="pref-path" data-name="富山県" d="M475,340 L500,340 L490,370 L470,365 Z" />
+            <path class="pref-path" data-name="石川県" d="M455,320 L475,340 L470,365 L450,350 Z" />
+            <path class="pref-path" data-name="福井県" d="M430,360 L460,365 L450,390 L425,385 Z" />
+            <path class="pref-path" data-name="山梨県" d="M495,365 L515,365 L510,400 L490,395 Z" />
+            <path class="pref-path" data-name="長野県" d="M490,340 L520,340 L515,365 L495,365 L490,395 L465,390 Z" />
+            <path class="pref-path" data-name="岐阜県" d="M455,365 L490,370 L465,390 L450,420 L435,410 Z" />
+            <path class="pref-path" data-name="静岡県" d="M485,395 L510,415 L500,435 L470,425 Z" />
+            <path class="pref-path" data-name="愛知県" d="M450,420 L470,425 L465,445 L445,440 Z" />
+            <path class="pref-path" data-name="三重県" d="M430,425 L450,420 L445,440 L425,480 L415,470 Z" />
+            <path class="pref-path" data-name="滋賀県" d="M425,385 L440,390 L430,425 L415,420 Z" />
+            <path class="pref-path" data-name="京都府" d="M400,380 L425,385 L415,420 L400,425 Z" />
+            <path class="pref-path" data-name="大阪府" d="M395,425 L410,425 L410,450 L395,445 Z" />
+            <path class="pref-path" data-name="兵庫県" d="M370,390 L400,380 L400,425 L395,445 L365,435 Z" />
+            <path class="pref-path" data-name="奈良県" d="M410,425 L425,425 L420,470 L405,465 Z" />
+            <path class="pref-path" data-name="和歌山県" d="M390,445 L410,450 L405,465 L420,470 L395,490 Z" />
+            <path class="pref-path" data-name="鳥取県" d="M330,395 L370,390 L365,415 L330,415 Z" />
+            <path class="pref-path" data-name="島根県" d="M280,410 L330,395 L330,415 L285,425 Z" />
+            <path class="pref-path" data-name="岡山県" d="M330,415 L365,415 L360,440 L330,440 Z" />
+            <path class="pref-path" data-name="広島県" d="M295,420 L330,415 L330,445 L290,445 Z" />
+            <path class="pref-path" data-name="山口県" d="M250,430 L285,425 L290,445 L250,455 Z" />
+            <path class="pref-path" data-name="徳島県" d="M340,465 L370,460 L360,490 L335,480 Z" />
+            <path class="pref-path" data-name="香川県" d="M325,450 L365,450 L365,465 L335,465 Z" />
+            <path class="pref-path" data-name="愛媛県" d="M285,460 L325,450 L325,480 L295,495 Z" />
+            <path class="pref-path" data-name="高知県" d="M295,480 L335,465 L340,480 L320,505 L295,495 Z" />
+            <path class="pref-path" data-name="福岡県" d="M215,460 L245,455 L240,490 L215,485 Z" />
+            <path class="pref-path" data-name="佐賀県" d="M195,470 L215,460 L215,485 L195,480 Z" />
+            <path class="pref-path" data-name="長崎県" d="M170,465 L195,470 L195,495 L175,500 Z" />
+            <path class="pref-path" data-name="熊本県" d="M195,495 L225,490 L220,530 L195,525 Z" />
+            <path class="pref-path" data-name="大分県" d="M225,475 L250,470 L255,510 L225,510 Z" />
+            <path class="pref-path" data-name="宮崎県" d="M220,510 L255,510 L245,560 L220,550 Z" />
+            <path class="pref-path" data-name="鹿児島県" d="M190,525 L220,530 L220,550 L235,570 L190,570 Z" />
+            <path class="pref-path" data-name="沖縄県" d="M120,580 L150,585 L145,600 L115,595 Z" />
+          </g>
+        </svg>
+
+        <div class="global-member-trigger" id="earthTrigger" title="海外メンバー一覧を表示">
+          <div class="earth-icon">🌍</div>
+          <div class="earth-label">OVERSEAS</div>
+        </div>
+      </div>
+
+      <div class="current-selection-bar" id="currentSelectionBar">
+        都道府県を選択すると、該当メンバーが下に一覧表示されます
+      </div>
+
+      <div class="member-list-display-container">
+        <div class="member-grid" id="memberListGrid">
+          <div class="member-empty-message">上の地図から都道府県を選ぶか、右下の地球マークをクリックしてください</div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ===== LIFE PLAY SECTION ===== -->
+<section id="life-play">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;margin-bottom:50px">
+      <div class="section-tag" style="color:var(--sun-yellow);background:rgba(255,215,0,0.1);border-color:rgba(255,215,0,0.3)">LIFE STYLE</div>
+      <h2 class="section-title" style="color:#fff">人生の<span style="color:var(--sun-yellow)">遊び方</span></h2>
+      <p style="color:rgba(255,255,255,0.65);margin-top:12px;font-size:0.95rem">あなたはどのスタイルで人生を遊び倒す？</p>
+    </div>
+    <div class="life-play-carousel reveal">
+      <button type="button" class="lp-nav-btn lp-nav-prev" id="lpPrevBtn" aria-label="前の項目へ">‹</button>
+      <div class="life-play-stage">
+        <div class="life-play-card" id="lpActiveCard">
+          <div class="lp-emoji" id="lpEmoji"></div>
+          <div class="lp-title" id="lpTitle"></div>
+          <div class="lp-desc" id="lpDesc"></div>
+        </div>
+      </div>
+      <button type="button" class="lp-nav-btn lp-nav-next" id="lpNextBtn" aria-label="次の項目へ">›</button>
+    </div>
+    <div class="lp-dots" id="lpDots"></div>
+
+    <div class="member-list-display-container reveal">
+      <div class="current-selection-bar" id="lpSelectionBar"></div>
+      <div class="member-grid" id="lpMemberGrid"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ROULETTE SECTION ===== -->
+<section id="roulette-section" style="background:linear-gradient(135deg,#07101e 0%,#0a1628 100%);padding:100px 0;">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;margin-bottom:60px">
+      <div class="section-tag" style="color:var(--hot-pink);background:rgba(255,45,120,0.1);border-color:rgba(255,45,120,0.3)">LIFE ROULETTE</div>
+      <h2 class="section-title" style="color:#fff">人生<span style="color:var(--hot-pink)">ルーレット</span></h2>
+      <p style="color:rgba(255,255,255,0.65);margin-top:12px;font-size:0.95rem">今日からの新しい挑戦は〜〜？</p>
+    </div>
+    <div class="reveal" style="display:flex;flex-direction:column;align-items:center;gap:40px">
+      <div class="roulette-wrapper">
+        <div class="roulette-pointer">▼</div>
+        <canvas id="rouletteCanvas" width="400" height="400"></canvas>
+        <div class="roulette-center-btn" id="rouletteSpinBtn" onclick="spinRoulette()">
+          <span>SPIN</span>
+        </div>
+      </div>
+      <div id="rouletteResult" class="roulette-result" style="display:none"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONSTITUTION SECTION ===== -->
+<section id="constitution-section">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;margin-bottom:60px">
+      <div class="section-tag" style="color:var(--lime);background:rgba(170,255,0,0.08);border-color:rgba(170,255,0,0.25)">RULES</div>
+      <h2 class="section-title" style="color:#fff;">Playground<span style="color:var(--lime); padding-left:20px;">憲法</span></h2>
+      <p style="color:rgba(255,255,255,0.65);margin-top:12px;font-size:0.95rem">この場所の、たったひとつのルールブック</p>
+    </div>
+    <div class="constitution-scroll-wrap reveal">
+      <!-- Top rod -->
+      <div class="scroll-rod"></div>
+      <!-- Scroll body -->
+      <div class="scroll-body">
+        <div class="scroll-title-inner">
+          <h3>Playground 憲法</h3>
+          <div class="scroll-title-divider"></div>
+        </div>
+        <ul class="constitution-list">
+          <li class="constitution-item">
+            <span class="constitution-item-num">第一条</span>
+            <span class="constitution-item-text">面白そうならやる</span>
+          </li>
+          <li class="constitution-item">
+            <span class="constitution-item-num">第二条</span>
+            <span class="constitution-item-text">失敗はネタ</span>
+          </li>
+          <li class="constitution-item">
+            <span class="constitution-item-num">第三条</span>
+            <span class="constitution-item-text">世界は意外と近い</span>
+          </li>
+          <li class="constitution-item">
+            <span class="constitution-item-num">第四条</span>
+            <span class="constitution-item-text">人生は後から辻褄が合う</span>
+          </li>
+        </ul>
+        <div class="scroll-seal">
+          <div class="scroll-seal-circle">📜</div>
+        </div>
+      </div>
+      <!-- Bottom rod -->
+      <div class="scroll-rod"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TODAY'S LEGEND SECTION ===== -->
+<section id="legend-section" style="background:linear-gradient(135deg,#07101e 0%,#0a1628 60%,#051020 100%);padding:100px 0;">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;margin-bottom:60px">
+      <div class="section-tag" style="color:var(--sun-yellow);background:rgba(255,215,0,0.1);border-color:rgba(255,215,0,0.3)">HALL OF FAME</div>
+      <h2 class="section-title" style="color:#fff">今日の<span style="color:var(--sun-yellow)">伝説</span>コーナー</h2>
+      <p style="color:rgba(255,255,255,0.65);margin-top:12px;font-size:0.95rem">あなたのぶっ飛んだエピソードを投稿しよう</p>
+    </div>
+    <div class="reveal legend-form-wrap">
+      <div class="legend-form">
+        <input id="legendName" type="text" placeholder="あなたの名前" maxlength="20" class="legend-input">
+        <input id="legendTopic" type="text" placeholder="ぶっ飛んだトピック（例：砂漠でDJ、会社設立した日に遭難）" maxlength="80" class="legend-input legend-input-wide">
+        <button onclick="postLegend()" class="legend-btn">投稿する ✦</button>
+      </div>
+      <div id="legendError" class="legend-error"></div>
+    </div>
+    <div id="legendList" class="legend-list reveal"></div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-logo">Playground</div>
+  <p>世界を遊び倒せ！人生は遊びだ。</p>
+  <p style="margin-top:16px;font-size:0.75rem;opacity:0.4">© 2026 Playground Community. All rights reserved.</p>
+</footer>
+
+<script>
+// ===== モバイル・タブレット通知オーバーレイ =====
+(function() {
+  function isMobileOrTablet() {
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    const uaIsMobile = /android|iphone|ipad|ipod|windows phone|mobile|iemobile/i.test(ua);
+    const isTouch = (navigator.maxTouchPoints || 0) > 0;
+    const smallDevice = Math.min(window.screen.width, window.screen.height) < 900;
+    return uaIsMobile || (isTouch && smallDevice);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const overlay = document.getElementById('mobileNoticeOverlay');
+    const confirmBtn = document.getElementById('mobileNoticeConfirmBtn');
+    if (!overlay || !confirmBtn) return;
+
+    if (isMobileOrTablet()) {
+      overlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+
+    confirmBtn.addEventListener('click', function() {
+      overlay.hidden = true;
+      document.body.style.overflow = '';
+    });
+  });
+})();
+</script>
+
+<script>
+// ===== TEAM LINE VIDEO 確実自動再生 =====
+(function() {
+  const video = document.getElementById('teamLineVideo');
+  if (!video) return;
+
+  // 念のためJS側からも明示的に再生を試みる（ブラウザの自動再生ポリシー対策）
+  function tryPlay() {
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // 自動再生がブロックされた場合、少し待って再試行
+        setTimeout(() => { video.play().catch(() => {}); }, 500);
+      });
+    }
+  }
+
+  // メタデータ読み込み後に再生
+  if (video.readyState >= 2) {
+    tryPlay();
+  } else {
+    video.addEventListener('loadedmetadata', tryPlay, { once: true });
+    video.addEventListener('canplay', tryPlay, { once: true });
+  }
+
+  // セクションが画面内に入ったタイミングでも再生を試みる
+  const teamLineSection = document.getElementById('team-line');
+  if (teamLineSection && 'IntersectionObserver' in window) {
+    const videoObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          tryPlay();
+        }
+      });
+    }, { threshold: 0.2 });
+    videoObserver.observe(teamLineSection);
+  }
+
+  // 万が一途中で止まってしまった場合の保険
+  video.addEventListener('pause', () => {
+    if (!video.ended) tryPlay();
+  });
+})();
+
+// ===== SPARKLES =====
+function createSparkle() {
+  const s = document.createElement('div');
+  s.className = 'sparkle';
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*60+'%';
+  s.style.width = s.style.height = (4+Math.random()*8)+'px';
+  s.style.animationDuration = (2+Math.random()*3)+'s';
+  s.style.animationDelay = Math.random()*4+'s';
+  document.getElementById('sparkles').appendChild(s);
+}
+for(let i=0;i<30;i++) createSparkle();
+
+// ===== PARTICLES =====
+const pc = document.getElementById('particles');
+function createParticle() {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  const size = 4 + Math.random()*8;
+  const colors = ['rgba(0,207,255,0.4)','rgba(255,215,0,0.4)','rgba(255,45,120,0.3)','rgba(255,255,255,0.3)','rgba(170,255,0,0.3)'];
+  p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;bottom:${Math.random()*20}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${8+Math.random()*12}s;animation-delay:${Math.random()*8}s`;
+  pc.appendChild(p);
+}
+for(let i=0;i<25;i++) createParticle();
+
+// ===== NAVBAR SCROLL =====
+window.addEventListener('scroll',()=>{
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// ===== REVEAL ON SCROLL =====
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting) e.target.classList.add('visible');
+  });
+},{threshold:0.1});
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el=>observer.observe(el));
+
+// ===== LINK TABS =====
+function switchTab(tab) {
+  const workCards = document.getElementById('workCards');
+  const playCards = document.getElementById('playCards');
+  const tabs = document.querySelectorAll('.link-tab');
+  if(tab==='work') {
+    workCards.style.display='grid';
+    playCards.style.display='none';
+    tabs[0].className='link-tab active-work';
+    tabs[1].className='link-tab';
+  } else {
+    workCards.style.display='none';
+    playCards.style.display='grid';
+    tabs[0].className='link-tab';
+    tabs[1].className='link-tab active-play';
+    // re-trigger animation
+    document.querySelectorAll('#playCards .link-card').forEach((c,i)=>{
+      c.style.animation='none';
+      c.offsetHeight;
+      c.style.animation=`cardFloat 0.6s cubic-bezier(0.34,1.56,0.64,1) ${i*0.07}s both`;
+    });
+  }
+}
+
+// ===== ZOOM DOWNLOAD =====
+function downloadZoom1() {
+  const a = document.createElement('a');
+  a.href = 'images/zoom1.png';
+  a.download = 'Playground_ZoomBG.png';
+  // Fallback: canvas if image fails
+  const img = new Image();
+  img.onload = () => { a.click(); };
+  img.onerror = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920; canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createLinearGradient(0,0,1920,1080);
+    g.addColorStop(0,'#003d99'); g.addColorStop(0.5,'#1a8fe3');
+    g.addColorStop(0.8,'#5ecb6e'); g.addColorStop(1,'#2d7a3a');
+    ctx.fillStyle = g; ctx.fillRect(0,0,1920,1080);
+    ctx.font='bold 120px serif'; ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.textAlign='center'; ctx.fillText('Playground',960,500);
+    ctx.font='60px serif'; ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.fillText('世界を遊び倒せ！',960,600);
+    const a2=document.createElement('a');
+    a2.href=canvas.toDataURL('image/png');
+    a2.download='Playground_ZoomBG.png'; a2.click();
+  };
+  img.src = 'images/zoom1.png';
+  a.click();
+}
+
+// ===== ROULETTE =====
+(function() {
+  const items = [
+    { label: '世界旅行', emoji: '✈️', color: '#0066cc' },
+    { label: '副業を始める', emoji: '💼', color: '#ff2d78' },
+    { label: '外国語を学ぶ', emoji: '🗣️', color: '#00cfff' },
+    { label: 'イベント主催', emoji: '🎪', color: '#aaff00' },
+    { label: '恋愛する', emoji: '💘', color: '#ff6bab' },
+    { label: '会社設立する', emoji: '🏢', color: '#FFD700' },
+    { label: '朝まで語る', emoji: '🌙', color: '#9b59b6' },
+    { label: '料理する', emoji: '👨‍🍳', color: '#ff9800' },
+  ];
+
+  const canvas = document.getElementById('rouletteCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 6;
+  const sliceAngle = (Math.PI * 2) / items.length;
+  let currentAngle = 0;
+  let spinning = false;
+
+  function drawWheel(rotation) {
+    ctx.clearRect(0, 0, size, size);
+    items.forEach((item, i) => {
+      const start = rotation + i * sliceAngle;
+      const end = start + sliceAngle;
+      // Slice
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, start, end);
+      ctx.closePath();
+      ctx.fillStyle = item.color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Emoji
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(start + sliceAngle / 2);
+      ctx.font = `${size * 0.065}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(item.emoji, r * 0.72, 0);
+      ctx.restore();
+
+      // Label
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(start + sliceAngle / 2);
+      ctx.font = `bold ${size * 0.038}px 'Noto Sans JP', sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(item.label, r * 0.42, 0);
+      ctx.restore();
+    });
+
+    // Center circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 0.1, 0, Math.PI * 2);
+    ctx.fillStyle = '#0a1628';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  drawWheel(0);
+
+  window.spinRoulette = function() {
+    if (spinning) return;
+    spinning = true;
+    const btn = document.getElementById('rouletteSpinBtn');
+    btn.style.pointerEvents = 'none';
+    const resultEl = document.getElementById('rouletteResult');
+    resultEl.style.display = 'none';
+
+    const extraSpins = 5 + Math.random() * 5;
+    const targetAngle = currentAngle + extraSpins * Math.PI * 2 + Math.random() * Math.PI * 2;
+    const duration = 3500;
+    const start = performance.now();
+    const startAngle = currentAngle;
+
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 4);
+    }
+
+    function animate(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      currentAngle = startAngle + (targetAngle - startAngle) * easeOut(progress);
+      drawWheel(currentAngle);
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        currentAngle = targetAngle % (Math.PI * 2);
+        drawWheel(currentAngle);
+        spinning = false;
+        btn.style.pointerEvents = '';
+
+        // Pointer points up (−π/2), find which item it points to
+        const normalizedAngle = ((Math.PI * 1.5 - currentAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        const idx = Math.floor(normalizedAngle / sliceAngle) % items.length;
+        const winner = items[idx];
+
+        resultEl.innerHTML = `
+          <div class="roulette-result-label">今日の挑戦</div>
+          <div class="roulette-result-emoji">${winner.emoji}</div>
+          <div class="roulette-result-text">${winner.label}</div>
+        `;
+        resultEl.style.display = 'block';
+        resultEl.style.animation = 'none';
+        resultEl.offsetHeight;
+        resultEl.style.animation = '';
+      }
+    }
+    requestAnimationFrame(animate);
+  };
+})();
+
+// ===== LEGEND =====
+(function() {
+  const MAX = 20;
+  const STORAGE_KEY = 'playground_legends_v1';
+
+  function loadLegends() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch(e) { return []; }
+  }
+
+  function saveLegends(arr) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(e) {}
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  const medals = ['🥇','🥈','🥉','⭐','✨','🔥','💥','🎯','🚀','💫'];
+
+  function renderLegends() {
+    const list = document.getElementById('legendList');
+    if (!list) return;
+    const legends = loadLegends();
+    if (legends.length === 0) {
+      list.innerHTML = '<div class="legend-empty">まだ伝説がありません。最初の伝説を作ろう！</div>';
+      return;
+    }
+    list.innerHTML = legends.map((item, i) => `
+      <div class="legend-item" style="animation-delay:${i * 0.06}s">
+        <button type="button" class="legend-delete-btn" onclick="deleteLegend(${i})" aria-label="削除">✕</button>
+        <div class="legend-medal">${medals[i % medals.length]}</div>
+        <div class="legend-body">
+          <div class="legend-name">${escHtml(item.name)}</div>
+          <div class="legend-topic">${escHtml(item.topic)}</div>
+          <div class="legend-time">${formatTime(item.ts)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.postLegend = function() {
+    const nameEl = document.getElementById('legendName');
+    const topicEl = document.getElementById('legendTopic');
+    const errEl = document.getElementById('legendError');
+    const name = nameEl.value.trim();
+    const topic = topicEl.value.trim();
+    errEl.textContent = '';
+
+    if (!name) { errEl.textContent = '名前を入力してください'; return; }
+    if (!topic) { errEl.textContent = 'トピックを入力してください'; return; }
+
+    const legends = loadLegends();
+    legends.unshift({ name, topic, ts: Date.now() });
+    if (legends.length > MAX) legends.length = MAX;
+    saveLegends(legends);
+
+    nameEl.value = '';
+    topicEl.value = '';
+    renderLegends();
+  };
+
+  window.deleteLegend = function(index) {
+    const confirmed = window.confirm('本当に削除しますか？');
+    if (!confirmed) return;
+
+    const legends = loadLegends();
+    if (index < 0 || index >= legends.length) return;
+
+    legends.splice(index, 1);
+    saveLegends(legends);
+    renderLegends();
+  };
+
+  renderLegends();
+})();
+
+
+(function() {
+  const scene = document.getElementById('zoomPcScene');
+  const monitorWrap = document.getElementById('pcMonitorWrap');
+  const screenContent = document.getElementById('pcScreenContent');
+  const tags = [document.getElementById('pcTag1'), document.getElementById('pcTag2'), document.getElementById('pcTag3')];
+  const pcCard = document.getElementById('pcZoomCard');
+  const pcDlBtn = document.getElementById('pcDlBtn');
+
+  if (!scene || !monitorWrap) return;
+
+  // Initial (hidden) state
+  monitorWrap.style.opacity = '0';
+  monitorWrap.style.transform = 'scale(2.4) translateY(120px)';
+  monitorWrap.style.willChange = 'transform, opacity';
+  monitorWrap.style.transition = 'transform 1s cubic-bezier(0.16,1,0.3,1), opacity 0.8s ease-out';
+
+  let played = false;
+
+  function playEntrance() {
+    if (played) return;
+    played = true;
+
+    // PC scales in and drifts up into place
+    requestAnimationFrame(() => {
+      monitorWrap.style.opacity = '1';
+      monitorWrap.style.transform = 'scale(1) translateY(0)';
+    });
+
+    // Screen turns on
+    setTimeout(() => {
+      screenContent.classList.add('visible');
+    }, 500);
+
+    // Floating tags appear in sequence
+    tags.forEach((t, i) => {
+      setTimeout(() => {
+        if (t) t.classList.add('show');
+      }, 900 + i * 200);
+    });
+
+    // Start gentle floating loop once settled
+    setTimeout(() => {
+      monitorWrap.style.animation = 'pcFloat 4s ease-in-out infinite';
+    }, 1100);
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        playEntrance();
+        observer.disconnect();
+      }
+    });
+  }, { threshold: 0.35 });
+
+  observer.observe(scene);
+
+  // Wire up download buttons inside screen
+  if (pcCard) pcCard.addEventListener('click', downloadZoom1);
+  if (pcDlBtn) {
+    pcDlBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      downloadZoom1();
+    });
+  }
+})();
+
+</script>
+<script src="members.js"></script>
+<script>
+// ===== LIFE PLAY ボタン切替カルーセル =====
+(function() {
+  const emojiEl = document.getElementById('lpEmoji');
+  const titleEl = document.getElementById('lpTitle');
+  const descEl = document.getElementById('lpDesc');
+  const cardEl = document.getElementById('lpActiveCard');
+  const prevBtn = document.getElementById('lpPrevBtn');
+  const nextBtn = document.getElementById('lpNextBtn');
+  const dotsWrap = document.getElementById('lpDots');
+  const selectionBar = document.getElementById('lpSelectionBar');
+  const memberGrid = document.getElementById('lpMemberGrid');
+
+  if (!emojiEl || !titleEl || !descEl || !cardEl) return;
+
+  // カードの内容（絵文字・タイトル・説明）
+  const LIFE_PLAY_ITEMS = [
+    { emoji: '🤝', title: '人との交流', desc: '出会いを楽しみ、繋がりを深める' },
+    { emoji: '✈️', title: '旅をする', desc: '世界を冒険し、視野を広げる' },
+    { emoji: '💡', title: '面白い企画', desc: 'ゼロから何かを生み出すワクワク' },
+    { emoji: '🎉', title: 'パーティー', desc: '最高の仲間と最高の夜を' },
+    { emoji: '🔥', title: '自分仕事に本気', desc: '情熱を持って自分の道を切り拓く' },
+    { emoji: '👨‍🍳', title: '料理を極める', desc: '美食の追求、食で人を幸せに' },
+    { emoji: '📚', title: '新しいことを学ぶ', desc: '好奇心のままに知識を広げる' },
+    { emoji: '👗', title: 'ファッション', desc: '自分らしさをスタイルで表現' },
+    { emoji: '💪', title: 'ボディメイク', desc: '鍛えた体は最高の自己投資' },
+    { emoji: '💑', title: 'お付き合い', desc: '大切な人と人生を彩る' }
+  ];
+
+  let currentIndex = 0;
+
+  function escHtmlLp(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // 下側のメンバーリストを描写（Playground Mapのmembers.jsと同じ考え方）
+  function renderLifePlayMembers(title) {
+    if (!selectionBar || !memberGrid) return;
+
+    selectionBar.innerHTML = `<span>${escHtmlLp(title)}</span> を楽しむ仲間一覧`;
+
+    let members = [];
+    if (typeof LIFE_PLAY_MEMBERS_DATA !== 'undefined' && LIFE_PLAY_MEMBERS_DATA[title]) {
+      members = LIFE_PLAY_MEMBERS_DATA[title];
+    }
+
+    if (members.length === 0) {
+      memberGrid.innerHTML = `<div class="member-empty-message">現在、「${escHtmlLp(title)}」に登録されているメンバーはいません。</div>`;
+      return;
+    }
+
+    memberGrid.innerHTML = members.map((member, index) => `
+      <div class="member-list-card" style="animation-delay:${index * 0.05}s">
+        <div class="member-info-top">
+          <div class="member-list-name">${escHtmlLp(member.name || '名前なし')}</div>
+          <div class="member-list-job">${escHtmlLp(member.job || '役職・仕事未設定')}</div>
+        </div>
+        <a href="${member.link || '#'}" target="_blank" rel="noopener noreferrer" class="member-sns-btn">
+          <span>🤝 支え合いを開く</span>
+        </a>
+      </div>
+    `).join('');
+  }
+
+  function renderDots() {
+    if (!dotsWrap) return;
+    dotsWrap.innerHTML = LIFE_PLAY_ITEMS.map((_, i) =>
+      `<div class="lp-dot${i === currentIndex ? ' active' : ''}" data-index="${i}"></div>`
+    ).join('');
+    dotsWrap.querySelectorAll('.lp-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        currentIndex = parseInt(dot.getAttribute('data-index'), 10);
+        renderCard();
+      });
+    });
+  }
+
+  function renderCard() {
+    const item = LIFE_PLAY_ITEMS[currentIndex];
+    emojiEl.textContent = item.emoji;
+    titleEl.textContent = item.title;
+    descEl.textContent = item.desc;
+
+    // 切替アニメーションを再トリガー
+    cardEl.classList.remove('lp-enter');
+    void cardEl.offsetWidth;
+    cardEl.classList.add('lp-enter');
+
+    renderDots();
+    renderLifePlayMembers(item.title);
+  }
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      currentIndex = (currentIndex - 1 + LIFE_PLAY_ITEMS.length) % LIFE_PLAY_ITEMS.length;
+      renderCard();
+    });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      currentIndex = (currentIndex + 1) % LIFE_PLAY_ITEMS.length;
+      renderCard();
+    });
+  }
+
+  renderCard();
+})();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    /* ========================================================
+       1. 既存の共通UI・ナビゲーション制御
+       ======================================================== */
+    const nav = document.querySelector('nav');
+    if (nav) {
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 50) {
+          nav.classList.add('scrolled');
+        } else {
+          nav.classList.remove('scrolled');
+        }
+      });
+    }
+
+    /* ========================================================
+       2. 日本地図＆メンバー管理 インタラクションロジック
+       ======================================================== */
+    const prefPaths = document.querySelectorAll('.pref-path');
+    const earthTrigger = document.getElementById('earthTrigger');
+    const currentSelectionBar = document.getElementById('currentSelectionBar');
+    const memberListGrid = document.getElementById('memberListGrid');
+    const tooltip = document.getElementById('mapTooltip');
+
+    // メンバーを動的に描写するメイン関数
+    function renderMembers(type, keyName) {
+      if (!memberListGrid || !currentSelectionBar) return;
+      
+      memberListGrid.innerHTML = '';
+      
+      // アクティブ表示（バーのテキスト）の更新
+      if (type === 'japan') {
+        currentSelectionBar.classList.remove('overseas-active');
+        currentSelectionBar.innerHTML = `<span>${keyName}</span> の所属メンバー一覧`;
+      } else {
+        currentSelectionBar.classList.add('overseas-active');
+        currentSelectionBar.innerHTML = `<span>🌍 海外</span> の所属メンバー一覧`;
+      }
+
+      // MAP_MEMBERS_DATA が読み込めているかチェックし、データを取得
+      let members = [];
+      if (typeof MAP_MEMBERS_DATA !== 'undefined') {
+        if (type === 'japan' && MAP_MEMBERS_DATA.japan && MAP_MEMBERS_DATA.japan[keyName]) {
+          members = MAP_MEMBERS_DATA.japan[keyName];
+        } else if (type === 'overseas' && MAP_MEMBERS_DATA.overseas) {
+          members = MAP_MEMBERS_DATA.overseas;
+        }
+      }
+
+      // 該当するメンバーが0人の場合
+      if (members.length === 0) {
+        const displayPlace = keyName === 'overseas' ? '海外' : keyName;
+        memberListGrid.innerHTML = `<div class="member-empty-message">現在、${displayPlace}に登録されているメンバーはいません。</div>`;
+        return;
+      }
+
+      // メンバーカードの生成と配置
+      members.forEach((member, index) => {
+        const card = document.createElement('div');
+        card.className = 'member-list-card';
+        card.style.animationDelay = `${index * 0.05}s`;
+
+        card.innerHTML = `
+          <div class="member-info-top">
+            <div class="member-list-name">${member.name || '名前なし'}</div>
+            <div class="member-list-job">${member.job || '役職・仕事未設定'}</div>
+          </div>
+          <a href="${member.link || '#'}" target="_blank" rel="noopener noreferrer" class="member-sns-btn">
+            <span>🤝 支え合いを開く</span>
+          </a>
+        `;
+        memberListGrid.appendChild(card);
+      });
+    }
+
+    // 47都道府県の各イベント登録 (クリック・ホバー・ツールチップ)
+    if (prefPaths.length > 0 && tooltip) {
+      prefPaths.forEach(path => {
+        // 都道府県クリック時
+        path.addEventListener('click', function() {
+          // すべての都道府県のアクティブ状態を解除
+          prefPaths.forEach(p => p.classList.remove('active'));
+          
+          // クリックされた都道府県をハイライト
+          this.classList.add('active');
+          
+          const prefName = this.getAttribute('data-name');
+          renderMembers('japan', prefName);
+        });
+
+        // マウスが都道府県の上にのった時 (ツールチップ表示)
+        path.addEventListener('mouseenter', function() {
+          const prefName = this.getAttribute('data-name');
+          tooltip.textContent = prefName;
+          tooltip.style.opacity = '1';
+        });
+
+        // マウスが都道府県の上で動いている時 (カーソル位置へ追従)
+        path.addEventListener('mousemove', function(e) {
+          // pointer-events: noneをCSSに指定しているため、綺麗に追従します
+          tooltip.style.left = e.clientX + 'px';
+          tooltip.style.top = e.clientY + 'px';
+        });
+
+        // マウスが都道府県から外れた時 (ツールチップ非表示)
+        path.addEventListener('mouseleave', function() {
+          tooltip.style.opacity = '0';
+        });
+      });
+    }
+
+    // 地球マーク（海外メンバー）のクリックイベント登録
+    if (earthTrigger) {
+      earthTrigger.addEventListener('click', () => {
+        // 都道府県の選択ハイライトをクリア
+        prefPaths.forEach(p => p.classList.remove('active'));
+        
+        renderMembers('overseas', 'overseas');
+      });
+    }
+
+
+    /* ========================================================
+       3. 元コードのPCアニメーション演出 (IntersectionObserver)
+       ======================================================== */
+    const scene = document.getElementById('pcScene');
+    const monitorWrap = document.getElementById('monitorWrap');
+    const screenContent = document.getElementById('screenContent');
+    const tags = document.querySelectorAll('.floating-tag');
+
+    if (scene && monitorWrap && screenContent) {
+      // 初期非表示状態のスタイル設定
+      monitorWrap.style.opacity = '0';
+      monitorWrap.style.transform = 'scale(2.4) translateY(120px)';
+      monitorWrap.style.willChange = 'transform, opacity';
+      monitorWrap.style.transition = 'transform 1s cubic-bezier(0.16,1,0.3,1), opacity 0.8s ease-out';
+
+      let played = false;
+
+      function playEntrance() {
+        if (played) return;
+        played = true;
+
+        // PCがズームインしながら定位置にスライドアップ
+        requestAnimationFrame(() => {
+          monitorWrap.style.opacity = '1';
+          monitorWrap.style.transform = 'scale(1) translateY(0)';
+        });
+
+        // 画面が点灯
+        setTimeout(() => {
+          screenContent.classList.add('visible');
+        }, 500);
+
+        // フローティングタグが順番に出現
+        tags.forEach((t, i) => {
+          setTimeout(() => {
+            if (t) t.classList.add('show');
+          }, 900 + i * 200);
+        });
+
+        // 位置が落ち着いた後に、ゆったりとした浮遊ループアニメーションを開始
+        setTimeout(() => {
+          monitorWrap.style.animation = 'pcFloat 4s ease-in-out infinite';
+        }, 1100);
+      }
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            playEntrance();
+            observer.disconnect(); // 一度発火したら監視を終了
+          }
+        });
+      }, { threshold: 0.35 });
+
+      observer.observe(scene);
+    }
+  });
+</script>
+</body>
+</html>
